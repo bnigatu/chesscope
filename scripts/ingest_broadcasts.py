@@ -83,7 +83,7 @@ DOWNLOAD_MAX_RETRIES = 8
 
 # Turso batch sizing. Larger = fewer round-trips, but Turso enforces a
 # payload size cap per transaction. 500 is empirically safe.
-BATCH_SIZE = 500
+BATCH_SIZE = 1000
 PROGRESS_EVERY = 5_000
 
 

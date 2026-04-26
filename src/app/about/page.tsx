@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { getCoverageStats } from "@/lib/queries";
+import { JsonLd } from "@/components/json-ld";
 
 export const metadata: Metadata = {
   title: "About",
   description:
     "How Chesscope works, where the data comes from, and why it exists.",
+  alternates: { canonical: "/about" },
 };
 
 export const revalidate = 3600;
@@ -19,6 +21,18 @@ export default async function AboutPage() {
 
   return (
     <article className="container-narrow py-20 prose-invert">
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          url: "https://chesscope.com/about",
+          name: "About Chesscope",
+          description:
+            "How Chesscope works, where the data comes from, and why it exists.",
+          inLanguage: "en",
+          isPartOf: { "@id": "https://chesscope.com/#website" },
+        }}
+      />
       <p className="font-mono text-[11px] uppercase tracking-[.3em] text-brass mb-6">
         ◆ Methodology
       </p>

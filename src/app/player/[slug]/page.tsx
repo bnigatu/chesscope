@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getPlayer, getPlayerGames, getTopPlayers } from "@/lib/queries";
 import { GameResults } from "@/components/results-list";
 import { SearchForm } from "@/components/search-form";
+import { JsonLd } from "@/components/json-ld";
 import { formatPgnDate } from "@/lib/utils";
 
 type Params = Promise<{ slug: string }>;
@@ -31,12 +32,28 @@ export async function generateMetadata({
   const { slug } = await params;
   const player = await getPlayer(slug);
   if (!player) return { title: "Player not found" };
+  const gameCountTxt = player.gameCount.toLocaleString();
+  const titleSuffix = `${gameCountTxt} broadcast game${
+    player.gameCount === 1 ? "" : "s"
+  }`;
+  const description =
+    `${gameCountTxt} broadcast games for ${player.name}` +
+    (player.peakElo ? `, peak Elo ${player.peakElo}` : "") +
+    (player.fideId ? `, FIDE ID ${player.fideId}` : "") +
+    ". Win/draw/loss tallies and full game list from the Lichess broadcast archive.";
   return {
-    title: player.name,
-    description: `Broadcast games and tournament history for ${player.name}. ${player.gameCount} games indexed across the Lichess broadcast archive.`,
+    title: `${player.name} — ${titleSuffix}`,
+    description,
+    alternates: { canonical: `/player/${slug}` },
     openGraph: {
-      title: `${player.name}, Chesscope`,
-      description: `${player.gameCount} games indexed`,
+      title: `${player.name} — ${titleSuffix}`,
+      description,
+      url: `/player/${slug}`,
+      type: "profile",
+    },
+    twitter: {
+      title: `${player.name} — ${titleSuffix}`,
+      description,
     },
   };
 }
@@ -52,8 +69,50 @@ export default async function PlayerPage({ params }: { params: Params }) {
       ? Math.round(((player.wins + player.draws / 2) / player.gameCount) * 100)
       : 0;
 
+  const playerUrl = `https://chesscope.com/player/${slug}`;
+
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Person",
+              "@id": `${playerUrl}#person`,
+              name: player.name,
+              url: playerUrl,
+              jobTitle: player.title ? expandTitle(player.title) : undefined,
+              identifier: player.fideId
+                ? [
+                    {
+                      "@type": "PropertyValue",
+                      propertyID: "FIDE",
+                      value: player.fideId,
+                    },
+                  ]
+                : undefined,
+            },
+            {
+              "@type": "BreadcrumbList",
+              itemListElement: [
+                {
+                  "@type": "ListItem",
+                  position: 1,
+                  name: "Home",
+                  item: "https://chesscope.com/",
+                },
+                {
+                  "@type": "ListItem",
+                  position: 2,
+                  name: player.name,
+                  item: playerUrl,
+                },
+              ],
+            },
+          ],
+        }}
+      />
       <div className="container-narrow pt-12 pb-8">
         <SearchForm size="md" />
       </div>

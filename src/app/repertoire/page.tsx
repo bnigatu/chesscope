@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   title: "Repertoire Explorer — Chesscope",
   description:
     "See any player's full opening repertoire — Lichess and Chess.com in one tree.",
+  alternates: { canonical: "/repertoire" },
 };
 
 export default async function RepertoirePage({

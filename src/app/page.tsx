@@ -4,9 +4,10 @@ import { GameResults, PlayerResults } from "@/components/results-list";
 import { searchGames, searchPlayers } from "@/lib/queries";
 
 export const metadata: Metadata = {
-  title: "Chesscope, Open chess data, indexed for the rest of us.",
+  title: "Chesscope — open chess data, search and repertoire",
   description:
-    "Search the full Lichess broadcast archive by player, event, or opening.",
+    "Search the Lichess broadcast archive by player, event, or opening — and build any player's opening repertoire from Lichess and Chess.com in one interactive tree. No login.",
+  alternates: { canonical: "/" },
 };
 
 export default async function HomePage({

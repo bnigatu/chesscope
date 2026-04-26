@@ -5,6 +5,7 @@ import { getGame } from "@/lib/queries";
 import { playerSlug } from "@/lib/slug";
 import { formatPgnDate, formatResult } from "@/lib/utils";
 import { SearchForm } from "@/components/search-form";
+import { JsonLd } from "@/components/json-ld";
 
 type Params = Promise<{ id: string }>;
 
@@ -18,11 +19,30 @@ export async function generateMetadata({
   const { id } = await params;
   const game = await getGame(id);
   if (!game) return { title: "Game not found" };
+  const eventTxt = game.event ?? "Broadcast game";
+  const dateTxt = formatPgnDate(game.date);
+  const titleBase = `${game.white} vs ${game.black}`;
+  const titleFull = dateTxt
+    ? `${titleBase} · ${eventTxt} ${dateTxt}`
+    : `${titleBase} · ${eventTxt}`;
+  const description =
+    `${eventTxt}, ${dateTxt}. ${game.white} vs ${game.black}, result ${formatResult(
+      game.result,
+    )}` +
+    (game.opening ? `. Opening: ${game.opening}` : "") +
+    (game.eco ? ` (${game.eco})` : "") +
+    ".";
   return {
-    title: `${game.white} vs ${game.black}`,
-    description: `${game.event ?? "Broadcast game"}, ${formatPgnDate(
-      game.date,
-    )}. Result: ${formatResult(game.result)}.`,
+    title: titleFull,
+    description,
+    alternates: { canonical: `/game/${id}` },
+    openGraph: {
+      title: titleFull,
+      description,
+      url: `/game/${id}`,
+      type: "article",
+    },
+    twitter: { title: titleFull, description },
   };
 }
 
@@ -31,8 +51,37 @@ export default async function GamePage({ params }: { params: Params }) {
   const game = await getGame(id);
   if (!game) notFound();
 
+  const gameUrl = `https://chesscope.com/game/${id}`;
+  const whiteSlug = playerSlug(game.white);
+
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://chesscope.com/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: game.white,
+              item: `https://chesscope.com/player/${whiteSlug}`,
+            },
+            {
+              "@type": "ListItem",
+              position: 3,
+              name: `${game.white} vs ${game.black}`,
+              item: gameUrl,
+            },
+          ],
+        }}
+      />
       <div className="container-narrow pt-12 pb-8">
         <SearchForm size="md" />
       </div>

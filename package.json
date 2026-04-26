@@ -1,0 +1,49 @@
+{
+  "name": "chesscope",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chesscope, open chess data search. Search broadcast games, player histories, and tournament archives.",
+  "scripts": {
+    "predev": "node scripts/sync-stockfish.mjs",
+    "dev": "next dev",
+    "prebuild": "node scripts/sync-stockfish.mjs",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "db:generate": "node --env-file=.env node_modules/drizzle-kit/bin.cjs generate",
+    "db:push": "node --env-file=.env node_modules/drizzle-kit/bin.cjs push",
+    "db:fts": "node --env-file=.env scripts/apply_fts.mjs",
+    "db:fts:reset": "node --env-file=.env scripts/reset_fts.mjs",
+    "ingest": "node --env-file=.env scripts/run_ingest.mjs",
+    "db:studio": "node --env-file=.env node_modules/drizzle-kit/bin.cjs studio"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "chess.js": "^1.4.0",
+    "chessops": "^0.15.0",
+    "drizzle-orm": "^0.36.4",
+    "next": "^15.5.15",
+    "react": "19.0.0",
+    "react-chessboard": "^5.10.0",
+    "react-dom": "19.0.0",
+    "stockfish": "^18.0.7",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@opennextjs/cloudflare": "^1.19.4",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "autoprefixer": "^10.4.20",
+    "drizzle-kit": "^0.30.1",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "^15.5.15",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "wrangler": "^4.85.0"
+  }
+}

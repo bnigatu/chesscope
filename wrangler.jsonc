@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "chesscope",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-01-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "vars": {
+    "NEXT_TELEMETRY_DISABLED": "1",
+  },
+  // Turso credentials are loaded via `wrangler secret put TURSO_URL` and
+  // `wrangler secret put TURSO_AUTH_TOKEN` at deploy time. Do NOT commit
+  // them here, secrets are encrypted at the edge.
+  //
+  // R2 bucket for incremental cache (matches open-next.config.ts). Create
+  // with `wrangler r2 bucket create chesscope-cache`.
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "chesscope-cache",
+    },
+  ],
+}

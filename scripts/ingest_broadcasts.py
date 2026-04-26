@@ -55,8 +55,16 @@ from typing import Iterable, Optional
 
 import chess.pgn
 import libsql_client
+import logging
 import requests
 import zstandard as zstd
+
+# Lichess broadcast PGNs sometimes use "0-0" (zero-zero) for castling
+# instead of the standard "O-O" (letter-O). python-chess logs each one as
+# a WARNING ("illegal san: '0-0' in <fen> while parsing <Game...>"). The
+# game still gets ingested with metadata + moves up to the bad SAN, so
+# the warnings are noise. Mute them to keep the action log readable.
+logging.getLogger("chess.pgn").setLevel(logging.ERROR)
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 

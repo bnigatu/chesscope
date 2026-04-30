@@ -93,8 +93,20 @@ export function EnginePanel({
   const [nps, setNps] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Bump to force the worker-lifecycle effect to tear down and rebuild
+  // the worker. Used by the "Restart engine" button.
+  const [engineNonce, setEngineNonce] = useState(0);
 
   const workerRef = useRef<Worker | null>(null);
+  // Track the Blob URL the worker was constructed from so we can revoke
+  // it on teardown — otherwise it leaks in the document URL store.
+  const workerBlobUrlRef = useRef<string | null>(null);
+  // How many times the current engine has crashed before reaching a
+  // ready state. We'll silently restart up to MAX_AUTO_RETRIES; only
+  // after that does the error surface to the user. Reset on successful
+  // handshake or when the user explicitly switches engines.
+  const errorAttemptsRef = useRef(0);
+  const MAX_AUTO_RETRIES = 2;
   const handshakeReadyRef = useRef(false);
   const currentFenRef = useRef(fen);
   const whiteToMove = useMemo(() => fen.split(" ")[1] === "w", [fen]);
@@ -116,6 +128,11 @@ export function EnginePanel({
   }, [settingsKey]);
 
   function update<K extends keyof Settings>(k: K, v: Settings[K]) {
+    // User-initiated change — fresh retry budget for whatever they
+    // pick. The auto-retry path uses setEngineNonce directly, so it
+    // doesn't go through here and the attempt counter survives.
+    errorAttemptsRef.current = 0;
+    setErrorMsg(null);
     setSettings((prev) => ({ ...prev, [k]: v }));
   }
 
@@ -152,10 +169,34 @@ export function EnginePanel({
 
     const engineFile = ENGINES[settings.engineId].file;
 
+    // Wrap the engine in a Blob worker that swallows uncaught errors
+    // from inside the worker context. Stockfish's WASM hits occasional
+    // `RuntimeError: unreachable` traps during search — our auto-retry
+    // recovers behaviourally, but the browser still logs the original
+    // uncaught error from inside the worker before our parent-side
+    // `onerror` runs.
+    //
+    // preventDefault() on the worker's `error` event suppresses the
+    // browser's automatic console output. But per the HTML spec it
+    // also stops the error from propagating to Worker.onerror on the
+    // parent side, which would break our auto-retry. So the wrapper
+    // posts a sentinel message back to the parent instead — onmessage
+    // recognises it and triggers the same restart path.
+    const fullEngineUrl = new URL(engineFile, location.href).href;
+    const wrapperSrc =
+      `function notify(m){try{self.postMessage({__engineError:String(m||"worker error")})}catch(_){}}` +
+      `self.addEventListener("error",function(e){e.preventDefault();notify(e.message)});` +
+      `self.addEventListener("unhandledrejection",function(e){e.preventDefault();notify(e.reason&&e.reason.message||e.reason)});` +
+      `importScripts(${JSON.stringify(fullEngineUrl)});`;
+    const blobUrl = URL.createObjectURL(
+      new Blob([wrapperSrc], { type: "application/javascript" })
+    );
+
     let w: Worker;
     try {
-      w = new Worker(engineFile);
+      w = new Worker(blobUrl);
     } catch (err) {
+      URL.revokeObjectURL(blobUrl);
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[engine] failed to construct worker:", msg);
       setErrorMsg(`Couldn't load ${engineFile}: ${msg}`);
@@ -163,13 +204,28 @@ export function EnginePanel({
       return;
     }
     workerRef.current = w;
+    workerBlobUrlRef.current = blobUrl;
     handshakeReadyRef.current = false;
     setStatus("loading");
     setErrorMsg(null);
 
+    // Shared error path used by both the parent's onerror (rarely fires
+    // because the wrapper preventDefaults) and the wrapper's sentinel
+    // postMessage. Auto-retries silently a couple of times before
+    // surfacing anything to the user.
+    function handleEngineError(detail: string) {
+      if (errorAttemptsRef.current < MAX_AUTO_RETRIES) {
+        errorAttemptsRef.current++;
+        // Brief delay so we don't tight-loop if the engine fails
+        // synchronously during construction.
+        setTimeout(() => setEngineNonce((n) => n + 1), 250);
+        return;
+      }
+      setErrorMsg(detail);
+      setStatus("error");
+    }
+
     w.onerror = (e: ErrorEvent) => {
-      // ErrorEvent often serializes to "{}" when logged directly. Pull
-      // the actual fields so we know what went wrong.
       const detail =
         e.message ||
         e.filename ||
@@ -178,24 +234,33 @@ export function EnginePanel({
       const where = e.filename
         ? ` at ${e.filename}:${e.lineno}:${e.colno}`
         : "";
-      const fullMsg = `${detail}${where}`;
-      console.error("[engine] worker error:", fullMsg, e);
-      setErrorMsg(fullMsg);
-      setStatus("error");
-
-      // Auto-fallback: if the rich-NNUE engine failed (often a WASM
-      // compile error in browsers without SAB), try the pure-JS asm
-      // build before giving up.
-      if (settings.engineId === "lite-single") {
-        console.warn("[engine] falling back to ASM engine");
-        update("engineId", "asm");
-      }
+      handleEngineError(`${detail}${where}`);
     };
 
     w.onmessage = ({ data }) => {
+      // Sentinel payload from the Blob wrapper — the worker swallowed
+      // its own error event to suppress the console, but tells us so
+      // we can restart.
+      if (data && typeof data === "object" && "__engineError" in data) {
+        handleEngineError(
+          String((data as { __engineError: unknown }).__engineError) ||
+            "worker error"
+        );
+        return;
+      }
       if (typeof data !== "string") return;
 
       if (data === "uciok") {
+        // Engine options must be set after uciok and before any
+        // position/go. Order chosen to match Lichess's stockfish.js
+        // initialization. Setting Hash to 8MB (instead of default
+        // 16MB) reduces the chance of WASM allocation traps in
+        // memory-tight browsers — these manifest as "unreachable"
+        // RuntimeErrors and are the most common cause of the engine
+        // looking flaky. Threads=1 is redundant for single-threaded
+        // builds but explicit is safer.
+        w.postMessage("setoption name Hash value 8");
+        w.postMessage("setoption name Threads value 1");
         w.postMessage(`setoption name MultiPV value ${settings.multiPv}`);
         w.postMessage("ucinewgame");
         w.postMessage("isready");
@@ -203,6 +268,9 @@ export function EnginePanel({
       }
       if (data === "readyok") {
         handshakeReadyRef.current = true;
+        // Engine is healthy — reset the auto-retry budget so the next
+        // unrelated transient error gets its own fresh allowance.
+        errorAttemptsRef.current = 0;
         setStatus("ready");
         startAnalysis(currentFenRef.current);
         return;
@@ -290,7 +358,7 @@ export function EnginePanel({
     w.postMessage("uci");
     return teardown;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.enabled, settings.engineId, settings.multiPv]);
+  }, [settings.enabled, settings.engineId, settings.multiPv, engineNonce]);
 
   // Re-analyze on fen or depth changes (worker stays alive across these).
   useEffect(() => {
@@ -313,14 +381,35 @@ export function EnginePanel({
       workerRef.current.terminate();
       workerRef.current = null;
     }
+    if (workerBlobUrlRef.current) {
+      URL.revokeObjectURL(workerBlobUrlRef.current);
+      workerBlobUrlRef.current = null;
+    }
     handshakeReadyRef.current = false;
   }
 
   function startAnalysis(targetFen: string) {
     const w = workerRef.current;
     if (!w || !handshakeReadyRef.current) return;
+    // `stop` halts any in-flight search before the new position lands.
+    // Stockfish technically accepts a new `position` mid-search and
+    // aborts internally, but in practice the ASM build is much more
+    // reliable when commands aren't racing. Cheap defensive insurance.
+    w.postMessage("stop");
     w.postMessage(`position fen ${targetFen}`);
     w.postMessage(`go depth ${settings.depth}`);
+  }
+
+  /**
+   * Full worker teardown + re-init for the current engine. Used by the
+   * "Restart" button to recover from worker errors without changing
+   * engines. The worker-lifecycle useEffect re-runs when `engineNonce`
+   * bumps so we get a fresh worker, fresh handshake, fresh state.
+   */
+  function restartEngine() {
+    errorAttemptsRef.current = 0;
+    setErrorMsg(null);
+    setEngineNonce((n) => n + 1);
   }
 
   return (
@@ -336,7 +425,7 @@ export function EnginePanel({
           className="font-mono text-[10px] uppercase tracking-[.18em] text-brass shrink-0"
           title={ENGINES[settings.engineId].label}
         >
-          {settings.engineId === "asm" ? "Stockfish 18 ASM" : "Stockfish 18 NNUE"}
+          {settings.engineId === "asm" ? "SF 18 ASM" : "SF 18 NNUE"}
         </span>
         <span className="text-[11px] font-mono text-parchment-300/70 truncate flex-1 min-w-0">
           <span className="text-parchment-100">{depthSeen || "—"}</span>
@@ -388,15 +477,30 @@ export function EnginePanel({
           settings={settings}
           onChange={update}
           errorMsg={errorMsg}
+          onRestart={restartEngine}
         />
       )}
 
       {/* PV lines */}
       {settings.enabled ? (
         status === "error" && !errorMsg?.includes("Couldn't load") ? (
-          <p className="px-3 py-3 text-sm text-oxblood-light italic">
-            Engine error. Open settings (⚙) to switch engine.
-          </p>
+          <div className="px-3 py-3 space-y-2">
+            <p className="text-sm text-oxblood-light italic">
+              Engine error. Try restarting it, or pick a different engine in
+              settings (⚙).
+            </p>
+            <button
+              type="button"
+              onClick={restartEngine}
+              className={cx(
+                "px-2 py-1 text-[11px] uppercase tracking-[.18em] font-mono",
+                "border border-brass/50 text-brass-light rounded-sm",
+                "hover:bg-brass/10 hover:border-brass transition-colors"
+              )}
+            >
+              Restart engine
+            </button>
+          </div>
         ) : (
           <ul className="divide-y divide-parchment-50/6">
             {Array.from({ length: settings.multiPv }).map((_, i) => {
@@ -459,17 +563,32 @@ function SettingsPanel({
   settings,
   onChange,
   errorMsg,
+  onRestart,
 }: {
   settings: Settings;
   onChange: <K extends keyof Settings>(k: K, v: Settings[K]) => void;
   errorMsg: string | null;
+  onRestart: () => void;
 }) {
   return (
     <div className="px-3 py-3 border-b border-parchment-50/8 bg-ink-700/30 space-y-3">
       {errorMsg && (
-        <p className="text-[11px] text-oxblood-light font-mono break-words">
-          {errorMsg}
-        </p>
+        <div className="space-y-2">
+          <p className="text-[11px] text-oxblood-light font-mono break-words">
+            {errorMsg}
+          </p>
+          <button
+            type="button"
+            onClick={onRestart}
+            className={cx(
+              "px-2 py-1 text-[10px] uppercase tracking-[.18em] font-mono",
+              "border border-brass/50 text-brass-light rounded-sm",
+              "hover:bg-brass/10 hover:border-brass transition-colors"
+            )}
+          >
+            Restart engine
+          </button>
+        </div>
       )}
 
       <div className="space-y-1">
@@ -513,6 +632,20 @@ function SettingsPanel({
         max={5}
         onChange={(v) => onChange("multiPv", v)}
       />
+
+      <div className="pt-1 border-t border-parchment-50/8 flex justify-end">
+        <button
+          type="button"
+          onClick={onRestart}
+          className={cx(
+            "px-2 py-1 text-[10px] uppercase tracking-[.18em] font-mono",
+            "text-parchment-300/70 hover:text-parchment-50 transition-colors"
+          )}
+          title="Tear down and re-init the worker"
+        >
+          ↻ Restart engine
+        </button>
+      </div>
     </div>
   );
 }

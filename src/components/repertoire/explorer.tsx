@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
-import { Board } from "./board";
+import { Board, type BoardArrow } from "./board";
 import { ControlsBar } from "./controls-bar";
 import { EnginePanel } from "./engine-panel";
 import { MoveListPanel, type Move } from "./move-list-panel";
@@ -47,16 +47,40 @@ export function RepertoireExplorer({
   pgnEnabled = false,
   treeEnabled = false,
   filters,
+  initialSanLine = [],
 }: {
   lichessUser: string | null;
   chesscomUser: string | null;
   pgnEnabled?: boolean;
   treeEnabled?: boolean;
   filters: RepertoireFilters;
+  initialSanLine?: string[];
 }) {
   // ── Move-history state ───────────────────────────────────────────────
-  const [moves, setMoves] = useState<Move[]>([]);
-  const [cursor, setCursor] = useState(0);
+  // Seeded from the URL's `moves=` param so share links land you on the
+  // same board position the link author had. We validate via chess.js —
+  // anything that doesn't make a legal move from the running position is
+  // dropped (junk input fails closed at the first illegal SAN, cursor
+  // ends up wherever the legal prefix took us).
+  const initialMoves = useMemo<Move[]>(() => {
+    if (!initialSanLine.length) return [];
+    const game = new Chess();
+    const result: Move[] = [];
+    for (const san of initialSanLine) {
+      try {
+        const m = game.move(san);
+        if (!m) break;
+        result.push({ san: m.san, alternates: [] });
+      } catch {
+        break;
+      }
+    }
+    return result;
+  }, [initialSanLine]);
+
+  const [moves, setMoves] = useState<Move[]>(initialMoves);
+  const [cursor, setCursor] = useState(initialMoves.length);
+  const [hoveredMoveSan, setHoveredMoveSan] = useState<string | null>(null);
   const [orientation, setOrientation] = useState<"white" | "black">(
     filters.color
   );
@@ -229,6 +253,38 @@ export function RepertoireExplorer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sanLine, treeTick]
   );
+
+  // Auto-shape arrows for the top 4 played moves at this position. Brand
+  // brass with opacity scaling by frequency rank; the hovered move (if
+  // any) lights up to brass-light. Mirrors openingtree's behaviour where
+  // the board itself becomes a heatmap of "where this player goes."
+  const boardArrows = useMemo<BoardArrow[]>(() => {
+    if (playedMoves.length === 0) return [];
+    const result: BoardArrow[] = [];
+    for (let i = 0; i < Math.min(4, playedMoves.length); i++) {
+      const m = playedMoves[i];
+      const game = new Chess(fen);
+      let parsed;
+      try {
+        parsed = game.move(m.san);
+      } catch {
+        continue;
+      }
+      if (!parsed) continue;
+      const isHovered = hoveredMoveSan === m.san;
+      // Frequency-rank opacity: top move 0.85, second 0.65, third 0.45,
+      // fourth 0.30. Hovered always full strength in brand-light.
+      const opacity = [0.85, 0.65, 0.45, 0.3][i];
+      result.push({
+        startSquare: parsed.from,
+        endSquare: parsed.to,
+        color: isHovered
+          ? "rgba(212, 174, 94, 0.95)" // brass-light
+          : `rgba(184, 146, 74, ${opacity})`, // brass with rank-scaled opacity
+      });
+    }
+    return result;
+  }, [playedMoves, fen, hoveredMoveSan]);
 
   const positionStats: MoveDetails | null = useMemo(() => {
     const node = walk(treeRef.current, sanLine);
@@ -415,6 +471,7 @@ export function RepertoireExplorer({
             fen={fen}
             orientation={orientation}
             onPieceDrop={onPieceDrop}
+            arrows={boardArrows}
           />
         </div>
 
@@ -439,7 +496,11 @@ export function RepertoireExplorer({
             panel in the stacked flow; it's hidden on desktop where the
             right-column copy is the visible one. */}
         <aside className="lg:col-span-3 lg:order-1 space-y-6">
-          <MovesPanel moves={playedMoves} onPick={(san) => applyOne(san)} />
+          <MovesPanel
+            moves={playedMoves}
+            onPick={(san) => applyOne(san)}
+            onHover={setHoveredMoveSan}
+          />
           <BookPanel fen={fen} onPick={(san) => applyOne(san)} />
           <div className="lg:hidden">
             <StatsCard details={positionStats} perspective={filters.color} />

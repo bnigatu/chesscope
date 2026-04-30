@@ -14,9 +14,13 @@ const RESULT_TEXT: Record<GameRef["result"], string> = {
 export function MovesPanel({
   moves,
   onPick,
+  onHover,
 }: {
   moves: MoveOption[];
   onPick: (san: string) => void;
+  /** Fires with the row's SAN on mouse-enter, null on mouse-leave. The
+      explorer uses this to brighten the matching arrow on the board. */
+  onHover?: (san: string | null) => void;
 }) {
   return (
     <section className="space-y-3">
@@ -58,9 +62,15 @@ export function MovesPanel({
                     move={m}
                     game={m.lastPlayedGame}
                     onPick={onPick}
+                    onHover={onHover}
                   />
                 ) : (
-                  <MultiGameRow key={m.san} move={m} onPick={onPick} />
+                  <MultiGameRow
+                    key={m.san}
+                    move={m}
+                    onPick={onPick}
+                    onHover={onHover}
+                  />
                 )
               )}
             </tbody>
@@ -74,9 +84,11 @@ export function MovesPanel({
 function MultiGameRow({
   move,
   onPick,
+  onHover,
 }: {
   move: MoveOption;
   onPick: (san: string) => void;
+  onHover?: (san: string | null) => void;
 }) {
   const total = move.count;
   const w = pct(move.whiteWins, total);
@@ -86,6 +98,8 @@ function MultiGameRow({
     <tr
       className="hover:bg-ink-700/40 transition-colors cursor-pointer"
       onClick={() => onPick(move.san)}
+      onMouseEnter={() => onHover?.(move.san)}
+      onMouseLeave={() => onHover?.(null)}
     >
       <td className="px-3 py-2 font-mono text-parchment-50 font-bold">
         {move.san}
@@ -112,16 +126,20 @@ function SingleGameRow({
   move,
   game,
   onPick,
+  onHover,
 }: {
   move: MoveOption;
   game: GameRef;
   onPick: (san: string) => void;
+  onHover?: (san: string | null) => void;
 }) {
   const stop = (e: MouseEvent) => e.stopPropagation();
   return (
     <tr
       className="hover:bg-ink-700/40 transition-colors cursor-pointer"
       onClick={() => onPick(move.san)}
+      onMouseEnter={() => onHover?.(move.san)}
+      onMouseLeave={() => onHover?.(null)}
     >
       <td className="px-3 py-2 font-mono text-parchment-50 font-bold align-top">
         {move.san}

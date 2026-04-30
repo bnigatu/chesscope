@@ -24,6 +24,16 @@ export default async function RepertoirePage({
   const pgnEnabled = sp.pgn === "1";
   const treeEnabled = sp.tree === "1";
   const filters = filtersFromParams(sp);
+  // Initial moves passed in via the share-link URL. Each entry is a SAN
+  // separated by commas. The explorer validates against chess.js and
+  // ignores anything that doesn't make a legal move from the running
+  // position, so junk input fails closed (cursor stays at 0).
+  const initialSanLine = sp.moves
+    ? sp.moves
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
 
   return (
     <div className="container-wide py-10 sm:py-14">
@@ -62,6 +72,7 @@ export default async function RepertoirePage({
           pgnEnabled={pgnEnabled}
           treeEnabled={treeEnabled}
           filters={filters}
+          initialSanLine={initialSanLine}
         />
       ) : (
         <FormView />

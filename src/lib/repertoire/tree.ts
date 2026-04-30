@@ -66,12 +66,15 @@ export function addGame(
   game: ParsedGame,
   perspective: "white" | "black",
   playerName: string,
-  maxPlies = 30
+  // 1000 plies is a safety cap, not a feature limit. The longest
+  // documented chess game in history is Nikolić–Arsović 1989 at 269
+  // moves (538 plies), so a legitimate PGN should never hit 1000.
+  // Anything that tries is either malformed or a malicious upload
+  // attempting to OOM the browser; we cap to keep tree growth bounded.
+  maxPlies = 1000
 ): void {
   let node = root;
   recordAt(node, game);
-  // Walk up to maxPlies — past that we don't need the tree depth for an
-  // opening explorer, and the memory cost is real.
   const limit = Math.min(maxPlies, game.moves.length);
   // Filter to only the side the user played.
   // perspective="white" → record nodes after white's move (even plies index 0,2,4)

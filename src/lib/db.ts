@@ -1,5 +1,15 @@
 import { createClient, type Client } from "@libsql/client/web";
-import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
+// Use the /web entry of drizzle's libsql adapter — it imports
+// `@libsql/client/web` directly. The bare `drizzle-orm/libsql`
+// imports `@libsql/client` (no /web), which resolves to the
+// Node-native entry under workerd and pulls in `@neon-rs/load`.
+// That loader throws "Neon: unsupported Linux architecture:" on
+// cold isolate startup, causing intermittent 500s on first hit.
+import { drizzle } from "drizzle-orm/libsql/web";
+// Type only — pulled from the parent path. `import type` is erased
+// at build, so this does not pull the native node entry into the
+// Worker bundle.
+import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 
 /**

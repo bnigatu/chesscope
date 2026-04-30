@@ -5,10 +5,12 @@
 // in full (sample game refs included up to the SAMPLE_CAP set in
 // tree.ts), so the loaded view is identical to the live one.
 
-import type { TreeNode } from "./tree";
+import type { Tree } from "./tree";
 import type { RepertoireFilters } from "./filters";
 
-export const TREE_FILE_VERSION = 1;
+// V1: SAN-recursive TreeNode. Deprecated; loading V1 files yields a
+// version-mismatch error. V2: FEN-keyed Tree.
+export const TREE_FILE_VERSION = 2;
 export const TREE_FILE_EXT = ".tree";
 
 export type SavedTree = {
@@ -22,7 +24,7 @@ export type SavedTree = {
     playerName?: string;
   };
   filters: RepertoireFilters;
-  tree: TreeNode;
+  tree: Tree;
 };
 
 export function serializeTree(saved: Omit<SavedTree, "version" | "generatedAt">): string {
@@ -61,6 +63,11 @@ export function deserializeTree(text: string): SavedTree {
   if (parsed.version > TREE_FILE_VERSION) {
     throw new Error(
       `Tree file is from a newer version (${parsed.version}). Update Chesscope.`
+    );
+  }
+  if (parsed.version < TREE_FILE_VERSION) {
+    throw new Error(
+      `Tree file is from an older version (v${parsed.version}). The tree format changed in v${TREE_FILE_VERSION}; rebuild from your sources.`
     );
   }
   return parsed;

@@ -5,6 +5,7 @@ import { Chess } from "chess.js";
 import { Board, type BoardArrow } from "./board";
 import { ControlsBar } from "./controls-bar";
 import { EnginePanel } from "./engine-panel";
+import { EvalBar } from "./eval-bar";
 import { MoveListPanel, type Move } from "./move-list-panel";
 import { MovesPanel } from "./moves-panel";
 import { BookPanel } from "./book-panel";
@@ -19,11 +20,12 @@ import {
 } from "@/lib/repertoire/ingest";
 import {
   addGame,
-  makeRoot,
+  makeTree,
+  nodeAt,
+  positionFen,
   topMovesAt,
-  walk,
   type MoveOption,
-  type TreeNode,
+  type Tree,
 } from "@/lib/repertoire/tree";
 import type { RepertoireFilters } from "@/lib/repertoire/filters";
 import {
@@ -81,6 +83,12 @@ export function RepertoireExplorer({
   const [moves, setMoves] = useState<Move[]>(initialMoves);
   const [cursor, setCursor] = useState(initialMoves.length);
   const [hoveredMoveSan, setHoveredMoveSan] = useState<string | null>(null);
+  // Latest top-PV eval from the engine. Reset to null on FEN change so
+  // the bar doesn't show stale data while the engine recomputes.
+  const [evalInfo, setEvalInfo] = useState<{
+    cp: number | null;
+    mate: number | null;
+  }>({ cp: null, mate: null });
   const [orientation, setOrientation] = useState<"white" | "black">(
     filters.color
   );
@@ -91,8 +99,14 @@ export function RepertoireExplorer({
   );
   const fen = useMemo(() => fenAt(sanLine), [sanLine]);
 
+  // Reset eval bar to "no data yet" when the position changes — engine
+  // will repopulate within a tick.
+  useEffect(() => {
+    setEvalInfo({ cp: null, mate: null });
+  }, [fen]);
+
   // ── Tree state ───────────────────────────────────────────────────────
-  const treeRef = useRef<TreeNode>(makeRoot());
+  const treeRef = useRef<Tree>(makeTree());
   const [treeTick, setTreeTick] = useState(0);
   const [counts, setCounts] = useState<Counts>({
     lichess: 0,
@@ -110,7 +124,7 @@ export function RepertoireExplorer({
   const filterKey = JSON.stringify(filters);
 
   useEffect(() => {
-    treeRef.current = makeRoot();
+    treeRef.current = makeTree();
     setCounts({ lichess: 0, chesscom: 0, pgn: 0 });
     setError(null);
     setTreeTick(0);
@@ -130,7 +144,8 @@ export function RepertoireExplorer({
         setCounts({
           lichess: 0,
           chesscom: 0,
-          pgn: saved.tree.count,
+          pgn:
+            nodeAt(saved.tree, positionFen(STARTING_FEN))?.count ?? 0,
         });
         setTreeTick((t) => t + 1);
         setStatus("done");
@@ -194,7 +209,7 @@ export function RepertoireExplorer({
           if (!playerName) continue;
           if (!shouldIngest(game, filters, playerName)) continue;
 
-          addGame(treeRef.current, game, filters.color, playerName);
+          addGame(treeRef.current, game);
           processed++;
           setCounts((c) => ({
             ...c,
@@ -248,10 +263,11 @@ export function RepertoireExplorer({
   };
 
   // ── Tree-derived data ─────────────────────────────────────────────────
+  const currentFenKey = useMemo(() => positionFen(fen), [fen]);
   const playedMoves: MoveOption[] = useMemo(
-    () => topMovesAt(treeRef.current, sanLine),
+    () => topMovesAt(treeRef.current, currentFenKey),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sanLine, treeTick]
+    [currentFenKey, treeTick]
   );
 
   // Auto-shape arrows for the top 4 played moves at this position. Brand
@@ -287,7 +303,7 @@ export function RepertoireExplorer({
   }, [playedMoves, fen, hoveredMoveSan]);
 
   const positionStats: MoveDetails | null = useMemo(() => {
-    const node = walk(treeRef.current, sanLine);
+    const node = nodeAt(treeRef.current, currentFenKey);
     if (!node || node.count === 0) return null;
     return {
       count: node.count,
@@ -303,7 +319,7 @@ export function RepertoireExplorer({
       lastPlayed: node.lastDate,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sanLine, treeTick, filters.color]);
+  }, [currentFenKey, treeTick, filters.color]);
 
   // ── Move-history mutation handlers ───────────────────────────────────
   const applyOne = useCallback(
@@ -467,19 +483,32 @@ export function RepertoireExplorer({
             onCopyShare={copyShare}
             onClear={clear}
           />
-          <Board
-            fen={fen}
-            orientation={orientation}
-            onPieceDrop={onPieceDrop}
-            arrows={boardArrows}
-          />
+          <div className="flex gap-2 max-w-[680px] mx-auto">
+            <EvalBar
+              cp={evalInfo.cp}
+              mate={evalInfo.mate}
+              orientation={orientation}
+            />
+            <div className="flex-1 min-w-0">
+              <Board
+                fen={fen}
+                orientation={orientation}
+                onPieceDrop={onPieceDrop}
+                arrows={boardArrows}
+              />
+            </div>
+          </div>
         </div>
 
         {/* RIGHT column · Engine + Continuation + Stats (desktop only).
             On mobile, the Stats card here is hidden and the duplicate
             below (after Book) takes over so Stats lands last. */}
         <aside className="lg:col-span-3 lg:order-3 space-y-6">
-          <EnginePanel fen={fen} onContinuationClick={playLine} />
+          <EnginePanel
+            fen={fen}
+            onContinuationClick={playLine}
+            onEval={setEvalInfo}
+          />
           <MoveListPanel
             moves={moves}
             cursor={cursor}

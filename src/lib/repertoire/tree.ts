@@ -1,6 +1,19 @@
-// Opening tree built from a stream of parsed games. Keyed by SAN path
-// from the start position; each node aggregates W/D/L counts plus a
-// capped sample of game references for drilling in.
+// FEN-keyed opening tree built from a stream of parsed games.
+//
+// Every chess position is identified by its position-only FEN (piece
+// placement / side to move / castling / en passant — no half/fullmove
+// clocks), so different move orders that reach the same position
+// aggregate into one node. This matches Lichess Explorer, ChessBase,
+// and openingtree.com — the canonical shape for chess opening data.
+//
+// State per FEN:
+//   - aggregate counts (W/D/L, total Elos, longest/shortest)
+//   - a sample of game refs that visited this position (capped)
+//   - the moves played FROM this position, each with the resulting FEN
+//
+// addGame walks the game once, updating the FEN at each ply.
+
+import { Chess } from "chess.js";
 
 export type GameRef = {
   id: string;
@@ -13,16 +26,23 @@ export type GameRef = {
   whiteElo?: number;
   blackElo?: number;
   timeControl?: string;
-  ply: number; // total plies in the game (for longest/shortest stats)
+  ply: number;
 };
 
 export type ParsedGame = {
   ref: GameRef;
-  moves: string[]; // mainline SANs
+  moves: string[];
 };
 
-export type TreeNode = {
-  san: string; // empty for root
+export type MoveEdge = {
+  count: number;
+  resultingFen: string;
+  /** Sample game leading to this move, populated when count === 1 so
+      the UI can render the single-game row openingtree-style. */
+  lastPlayedGame?: GameRef;
+};
+
+export type FenNode = {
   count: number;
   whiteWins: number;
   blackWins: number;
@@ -34,80 +54,86 @@ export type TreeNode = {
   longestPlies?: number;
   shortestPlies?: number;
   lastDate?: string;
-  bestWinElo?: number;
-  bestWinGame?: GameRef;
-  worstLossElo?: number;
-  worstLossGame?: GameRef;
-  // map keyed by SAN — using object so React updates don't have to clone Map
-  children: Record<string, TreeNode>;
-  games: GameRef[]; // capped
+  /** Sample game refs that reached this position. Capped at SAMPLE_CAP. */
+  games: GameRef[];
+  /** Moves played from this position, keyed by SAN. */
+  movesFrom: Record<string, MoveEdge>;
+};
+
+export type Tree = {
+  /** Position-only FEN (4 fields) → aggregate node. */
+  byFen: Record<string, FenNode>;
 };
 
 const SAMPLE_CAP = 50;
 
-export function makeRoot(): TreeNode {
+export const STARTING_FEN_FULL =
+  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+export const STARTING_FEN = positionFen(STARTING_FEN_FULL);
+
+/**
+ * Drop the halfmove + fullmove counters from a chess.js FEN. Same
+ * physical position with different move-counters is the same opening
+ * position for our purposes.
+ */
+export function positionFen(fullFen: string): string {
+  return fullFen.split(" ").slice(0, 4).join(" ");
+}
+
+/**
+ * Compute the FEN reached by playing `san` from `currentFen`. Returns
+ * null if the move is illegal in that position.
+ */
+export function fenAfterMove(
+  currentFen: string,
+  san: string
+): string | null {
+  const game = new Chess();
+  try {
+    // chess.js needs a full FEN; tack on the trivial counters if the
+    // input is position-only.
+    const parts = currentFen.split(" ");
+    const full = parts.length === 4 ? `${currentFen} 0 1` : currentFen;
+    game.load(full);
+  } catch {
+    return null;
+  }
+  try {
+    const m = game.move(san);
+    if (!m) return null;
+  } catch {
+    return null;
+  }
+  return positionFen(game.fen());
+}
+
+export function makeTree(): Tree {
   return {
-    san: "",
-    count: 0,
-    whiteWins: 0,
-    blackWins: 0,
-    draws: 0,
-    totalWhiteElo: 0,
-    totalBlackElo: 0,
-    whiteEloSamples: 0,
-    blackEloSamples: 0,
-    children: {},
-    games: [],
+    byFen: {},
   };
 }
 
-export function addGame(
-  root: TreeNode,
-  game: ParsedGame,
-  perspective: "white" | "black",
-  playerName: string,
-  // 1000 plies is a safety cap, not a feature limit. The longest
-  // documented chess game in history is Nikolić–Arsović 1989 at 269
-  // moves (538 plies), so a legitimate PGN should never hit 1000.
-  // Anything that tries is either malformed or a malicious upload
-  // attempting to OOM the browser; we cap to keep tree growth bounded.
-  maxPlies = 1000
-): void {
-  let node = root;
-  recordAt(node, game);
-  const limit = Math.min(maxPlies, game.moves.length);
-  // Filter to only the side the user played.
-  // perspective="white" → record nodes after white's move (even plies index 0,2,4)
-  // perspective="black" → record nodes after black's move (odd plies index 1,3,5)
-  const playerWasWhite = playerName
-    ? game.ref.white.toLowerCase() === playerName.toLowerCase()
-    : true;
-  const recordSide =
-    perspective === "white" ? playerWasWhite : !playerWasWhite;
-  void recordSide; // perspective gating is handled by the caller (ingester)
-  for (let i = 0; i < limit; i++) {
-    const san = game.moves[i];
-    const child =
-      node.children[san] ??
-      (node.children[san] = {
-        san,
-        count: 0,
-        whiteWins: 0,
-        blackWins: 0,
-        draws: 0,
-        totalWhiteElo: 0,
-        totalBlackElo: 0,
-        whiteEloSamples: 0,
-        blackEloSamples: 0,
-        children: {},
-        games: [],
-      });
-    recordAt(child, game);
-    node = child;
+function getOrCreateNode(tree: Tree, fen: string): FenNode {
+  let node = tree.byFen[fen];
+  if (!node) {
+    node = {
+      count: 0,
+      whiteWins: 0,
+      blackWins: 0,
+      draws: 0,
+      totalWhiteElo: 0,
+      totalBlackElo: 0,
+      whiteEloSamples: 0,
+      blackEloSamples: 0,
+      games: [],
+      movesFrom: {},
+    };
+    tree.byFen[fen] = node;
   }
+  return node;
 }
 
-function recordAt(node: TreeNode, game: ParsedGame): void {
+function recordAt(node: FenNode, game: ParsedGame): void {
   node.count++;
   if (game.ref.result === "1-0") node.whiteWins++;
   else if (game.ref.result === "0-1") node.blackWins++;
@@ -122,16 +148,10 @@ function recordAt(node: TreeNode, game: ParsedGame): void {
     node.blackEloSamples++;
   }
 
-  if (
-    node.longestPlies == null ||
-    game.ref.ply > node.longestPlies
-  ) {
+  if (node.longestPlies == null || game.ref.ply > node.longestPlies) {
     node.longestPlies = game.ref.ply;
   }
-  if (
-    node.shortestPlies == null ||
-    game.ref.ply < node.shortestPlies
-  ) {
+  if (node.shortestPlies == null || game.ref.ply < node.shortestPlies) {
     node.shortestPlies = game.ref.ply;
   }
   if (!node.lastDate || game.ref.date > node.lastDate) {
@@ -142,51 +162,120 @@ function recordAt(node: TreeNode, game: ParsedGame): void {
   }
 }
 
-export function walk(root: TreeNode, path: string[]): TreeNode | null {
-  let node: TreeNode | undefined = root;
-  for (const san of path) {
-    node = node?.children[san];
-    if (!node) return null;
+export function addGame(
+  tree: Tree,
+  game: ParsedGame,
+  // Safety guard against pathological PGN. Longest documented chess
+  // game is 538 plies (Nikolić–Arsović 1989); 1000 catches malformed
+  // input without limiting real games.
+  maxPlies = 1000
+): void {
+  const chess = new Chess();
+  const startFen = positionFen(chess.fen());
+  recordAt(getOrCreateNode(tree, startFen), game);
+
+  const limit = Math.min(maxPlies, game.moves.length);
+  let currentFen = startFen;
+  for (let i = 0; i < limit; i++) {
+    const san = game.moves[i];
+    let canonicalSan: string;
+    try {
+      const m = chess.move(san);
+      if (!m) break;
+      canonicalSan = m.san;
+    } catch {
+      break;
+    }
+    const newFen = positionFen(chess.fen());
+
+    // Record the edge from currentFen → newFen via canonicalSan.
+    const parentNode = tree.byFen[currentFen];
+    if (parentNode) {
+      const edge =
+        parentNode.movesFrom[canonicalSan] ??
+        (parentNode.movesFrom[canonicalSan] = {
+          count: 0,
+          resultingFen: newFen,
+        });
+      edge.count++;
+      // Newest game wins (caller iterates newest-first across months).
+      edge.lastPlayedGame = game.ref;
+    }
+
+    // Record at the new position.
+    recordAt(getOrCreateNode(tree, newFen), game);
+    currentFen = newFen;
   }
-  return node ?? null;
+}
+
+/**
+ * Walk a SAN path from the starting position, returning each ply's
+ * resulting FEN. Used by the explorer to map its SAN-keyed history
+ * (the user's exploration line) onto FEN lookups in the tree.
+ */
+export function fenAtPath(sanLine: string[]): string {
+  let fen = STARTING_FEN;
+  for (const san of sanLine) {
+    const next = fenAfterMove(fen, san);
+    if (!next) break;
+    fen = next;
+  }
+  return fen;
 }
 
 export type MoveOption = {
   san: string;
+  /**
+   * Games that reached the resulting position regardless of move order
+   * (FEN-keyed). The number you'd typically display.
+   */
   count: number;
+  /**
+   * Games that took THIS exact (parent_fen, san) edge. When this is
+   * much smaller than `count`, the move transposes into a position
+   * that's been studied via other move orders. Used by the moves panel
+   * to render a transposition warning icon.
+   */
+  edgeCount: number;
   whiteWins: number;
   blackWins: number;
   draws: number;
   lastDate?: string;
-  /**
-   * Sample game leading to this move, populated when count === 1 so the
-   * UI can render the single-game row openingtree-style. For count > 1
-   * it's still set (newest-leaning sample) but the panel ignores it.
-   */
   lastPlayedGame?: GameRef;
 };
 
 /**
- * Children of the node at `path`, sorted by frequency. These are the
- * moves the player has tried at this position.
+ * Moves played from the position at `fen`, sorted by frequency.
+ * Each move's stats come from the *resulting* FEN node — that's the
+ * count of games that landed in the post-move position regardless of
+ * how they got there. So Najdorf positions reached via different
+ * move orders aggregate correctly.
  */
 export function topMovesAt(
-  root: TreeNode,
-  path: string[],
+  tree: Tree,
+  fen: string,
   limit = 12
 ): MoveOption[] {
-  const node = walk(root, path);
-  if (!node) return [];
-  return Object.values(node.children)
-    .map((c) => ({
-      san: c.san,
-      count: c.count,
-      whiteWins: c.whiteWins,
-      blackWins: c.blackWins,
-      draws: c.draws,
-      lastDate: c.lastDate,
-      lastPlayedGame: c.games[c.games.length - 1] ?? c.games[0],
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, limit);
+  const parent = tree.byFen[fen];
+  if (!parent) return [];
+  const out: MoveOption[] = [];
+  for (const [san, edge] of Object.entries(parent.movesFrom)) {
+    const child = tree.byFen[edge.resultingFen];
+    if (!child) continue;
+    out.push({
+      san,
+      count: child.count,
+      edgeCount: edge.count,
+      whiteWins: child.whiteWins,
+      blackWins: child.blackWins,
+      draws: child.draws,
+      lastDate: child.lastDate,
+      lastPlayedGame: edge.lastPlayedGame,
+    });
+  }
+  return out.sort((a, b) => b.count - a.count).slice(0, limit);
+}
+
+export function nodeAt(tree: Tree, fen: string): FenNode | null {
+  return tree.byFen[fen] ?? null;
 }

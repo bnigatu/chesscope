@@ -74,9 +74,17 @@ type Status = "idle" | "loading" | "ready" | "error";
 export function EnginePanel({
   fen = STARTING_FEN,
   onContinuationClick,
+  onEval,
 }: {
   fen?: string;
   onContinuationClick?: (movesSan: string[]) => void;
+  /**
+   * Fires whenever the top PV's score updates. cp is centipawns (White
+   * positive) for normal positions; mate is a signed integer for mate
+   * scores (positive = white mates in N, negative = black). The other
+   * value is null. The eval bar listens to this.
+   */
+  onEval?: (info: { cp: number | null; mate: number | null }) => void;
 }) {
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
   const [showSettings, setShowSettings] = useState(false);
@@ -205,6 +213,7 @@ export function EnginePanel({
 
       let evalStr = "0.00";
       let evalCp = 0;
+      let signedMate: number | null = null;
       const scoreIdx = parts.indexOf("score");
       if (scoreIdx !== -1) {
         const type = parts[scoreIdx + 1] as "cp" | "mate";
@@ -216,9 +225,19 @@ export function EnginePanel({
           const v = evalCp / 100;
           evalStr = (v >= 0 ? "+" : "") + v.toFixed(2);
         } else {
-          evalCp = raw * mult > 0 ? 100000 : -100000;
-          evalStr = `M${raw * mult}`;
+          signedMate = raw * mult;
+          evalCp = signedMate > 0 ? 100000 : -100000;
+          evalStr = `M${signedMate}`;
         }
+      }
+      // Emit the score for the eval bar, but only on the top PV line so
+      // it doesn't flicker through alternates.
+      if (lineIndex === 0 && onEval) {
+        onEval(
+          signedMate != null
+            ? { cp: null, mate: signedMate }
+            : { cp: evalCp, mate: null }
+        );
       }
 
       const uciMoves = parts
@@ -367,16 +386,23 @@ export function EnginePanel({
                 <li
                   key={i}
                   className={cx(
-                    "flex items-baseline gap-3 px-3 py-2 text-sm",
+                    "flex items-baseline gap-2 px-2 py-2 text-sm",
                     i === 0 ? "bg-ink-700/40" : ""
                   )}
                 >
                   <span
                     className={cx(
-                      "data-num text-xs font-bold w-14 shrink-0 text-right",
-                      line && line.evalCp >= 0
-                        ? "text-parchment-50"
-                        : "text-oxblood-light"
+                      "data-num text-xs font-bold shrink-0",
+                      "inline-block text-right",
+                      "px-1.5 py-0.5 rounded-sm",
+                      // chess.com pattern: white bg + dark text when
+                      // White is winning, black bg + white text when
+                      // Black is winning. Reads as a score badge.
+                      line
+                        ? line.evalCp >= 0
+                          ? "bg-parchment-50 text-ink-900"
+                          : "bg-ink-900 text-parchment-50 border border-parchment-50/15"
+                        : "text-parchment-300/40 bg-transparent"
                     )}
                   >
                     {line ? line.evalStr : "·"}

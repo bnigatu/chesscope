@@ -11,6 +11,62 @@ const RESULT_TEXT: Record<GameRef["result"], string> = {
   "*": "*",
 };
 
+type TranspositionLevel = "none" | "info" | "warning";
+
+/**
+ * Compare path-specific edge count to FEN-aggregated total. When the
+ * total is much higher than the edge, this exact move order is
+ * underexposed to theory that gets reached via other orders.
+ *
+ * Mirrors openingtree.com's getTranspositionWarningLevel:
+ *   - move played once but the position has more games elsewhere → warning
+ *   - difference > 10 AND > 10% of total → warning
+ *   - otherwise difference > 0 → info
+ */
+function transpositionLevel(
+  edgeCount: number,
+  totalCount: number
+): TranspositionLevel {
+  const diff = totalCount - edgeCount;
+  if (diff <= 0) return "none";
+  if (edgeCount === 1) return "warning";
+  if (diff > 10 && diff / totalCount > 0.1) return "warning";
+  return "info";
+}
+
+function transpositionTooltip(
+  san: string,
+  edgeCount: number,
+  totalCount: number
+): string {
+  const playedTimes =
+    edgeCount === 1 ? "once" : `${edgeCount.toLocaleString()} times`;
+  const totalTimes = totalCount.toLocaleString();
+  return (
+    `${san} has been played ${playedTimes} via this exact move order, ` +
+    `but the resulting position has appeared ${totalTimes} times through ` +
+    `other move orders. This move transposes — there's more theory than ` +
+    `the count alone suggests.`
+  );
+}
+
+function TranspositionMark({ level, tooltip }: { level: TranspositionLevel; tooltip: string }) {
+  if (level === "none") return null;
+  const isWarning = level === "warning";
+  return (
+    <span
+      title={tooltip}
+      aria-label={tooltip}
+      className={cx(
+        "ml-1 align-middle text-[11px] leading-none cursor-help",
+        isWarning ? "text-oxblood-light" : "text-parchment-300/55"
+      )}
+    >
+      {isWarning ? "⚠" : "ⓘ"}
+    </span>
+  );
+}
+
 export function MovesPanel({
   moves,
   onPick,
@@ -94,6 +150,7 @@ function MultiGameRow({
   const w = pct(move.whiteWins, total);
   const d = pct(move.draws, total);
   const l = pct(move.blackWins, total);
+  const tLevel = transpositionLevel(move.edgeCount, total);
   return (
     <tr
       className="hover:bg-ink-700/40 transition-colors cursor-pointer"
@@ -103,6 +160,10 @@ function MultiGameRow({
     >
       <td className="px-3 py-2 font-mono text-parchment-50 font-bold">
         {move.san}
+        <TranspositionMark
+          level={tLevel}
+          tooltip={transpositionTooltip(move.san, move.edgeCount, total)}
+        />
       </td>
       <td className="px-3 py-2 data-num text-right text-parchment-100/85">
         {move.count.toLocaleString()}
@@ -143,6 +204,14 @@ function SingleGameRow({
     >
       <td className="px-3 py-2 font-mono text-parchment-50 font-bold align-top">
         {move.san}
+        <TranspositionMark
+          level={transpositionLevel(move.edgeCount, move.count)}
+          tooltip={transpositionTooltip(
+            move.san,
+            move.edgeCount,
+            move.count
+          )}
+        />
       </td>
       <td colSpan={2} className="px-3 py-2 text-xs text-parchment-100/85">
         {/* Mirrors the Book panel "Top games" layout: flex + truncate

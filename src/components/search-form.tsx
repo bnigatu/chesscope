@@ -95,7 +95,7 @@ export function SearchForm({
         setOpen(false);
         return;
       }
-      router.push(`/?q=${encodeURIComponent(trimmed)}`);
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
       setOpen(false);
     },
     [q, highlight, suggestions, router],

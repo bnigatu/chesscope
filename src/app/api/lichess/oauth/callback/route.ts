@@ -25,10 +25,10 @@ export async function GET(req: Request) {
   const c = await cookies();
   const expectedState = c.get(COOKIE_STATE)?.value;
   const verifier = c.get(COOKIE_VERIFIER)?.value;
-  const next = c.get(COOKIE_NEXT)?.value ?? "/repertoire";
+  const next = c.get(COOKIE_NEXT)?.value ?? "/";
 
   function fail(reason: string) {
-    const url = new URL(next.startsWith("/") ? next : "/repertoire", u.origin);
+    const url = new URL(next.startsWith("/") ? next : "/", u.origin);
     url.searchParams.set("oauth_error", reason);
     const r = NextResponse.redirect(url);
     r.cookies.delete(COOKIE_VERIFIER);
@@ -69,7 +69,7 @@ export async function GET(req: Request) {
   if (!access) return fail("no_access_token");
 
   const success = NextResponse.redirect(
-    new URL(next.startsWith("/") ? next : "/repertoire", u.origin)
+    new URL(next.startsWith("/") ? next : "/", u.origin)
   );
   success.cookies.set(
     COOKIE_TOKEN,

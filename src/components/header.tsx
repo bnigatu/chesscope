@@ -10,8 +10,8 @@ export function Header() {
         </Link>
 
         <nav className="flex items-center gap-1 sm:gap-2 text-sm">
-          <NavLink href="/">Search</NavLink>
-          <NavLink href="/repertoire">Repertoire</NavLink>
+          <NavLink href="/">Repertoire</NavLink>
+          <NavLink href="/search">Search</NavLink>
           <NavLink href="/about">About</NavLink>
         </nav>
       </div>

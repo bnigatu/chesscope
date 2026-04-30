@@ -30,12 +30,6 @@ export function Footer() {
                 </a>{" "}
                 <span className="text-parchment-300/60">CC BY-SA 4.0</span>
               </li>
-              <li className="text-parchment-300/60">
-                Chess.com archives <em>(planned)</em>
-              </li>
-              <li className="text-parchment-300/60">
-                TWIC, FIDE event PGNs <em>(planned)</em>
-              </li>
             </ul>
           </div>
 

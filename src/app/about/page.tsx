@@ -42,13 +42,19 @@ export default async function AboutPage() {
 
       <div className="mt-12 space-y-10 text-base text-parchment-100/85 leading-relaxed max-w-2xl">
         <Section heading="Why this exists">
-          Lichess publishes a vast archive of professional chess games as part
-          of its broadcast feature, but searching that archive by player name
-          has been broken or limited for some time. The data is public,
-          beautifully structured, and freely licensed, there is no good reason
-          that a coach preparing for a USCF tournament, a parent looking up
-          their kid&rsquo;s last games, or a journalist tracking a player should
-          hit a dead end. Chesscope fills that gap.
+          Building a serious opening repertoire from a player&rsquo;s own games
+          should be a five-minute exercise, but the existing tools each cover
+          only part of the problem. They look at one platform at a time, treat
+          the same position reached via different move orders as separate
+          lines, ship without an engine, and lean on book-move APIs that have
+          become rate-limited or sign-in-walled. Coaches, parents, and players
+          end up tab-juggling between half a dozen sites and still miss
+          theory. Chesscope merges Lichess and Chess.com into one transposition-aware
+          tree, runs Stockfish locally in the browser, caches built trees on
+          your device, and lets you save specific positions and share lines
+          by URL — the analysis loop people already do, without the
+          friction. Broadcast game search is here too, for when the game
+          you&rsquo;re looking for never lived on a personal account.
         </Section>
 
         <Section heading="Where the data comes from">
@@ -133,7 +139,7 @@ export default async function AboutPage() {
           </ul>
           <p className="mt-5">
             <a
-              href="/repertoire"
+              href="/"
               className="font-mono text-xs uppercase tracking-[.25em] text-brass-light hover:underline"
             >
               → Build a repertoire

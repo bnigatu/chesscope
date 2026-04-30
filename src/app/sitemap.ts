@@ -8,17 +8,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   const staticEntries: MetadataRoute.Sitemap = [
+    // Repertoire is now the homepage. /repertoire 301s here so we
+    // intentionally omit it from the sitemap — Google should drop the
+    // old URL once it sees the redirect.
     {
       url: `${base}/`,
       lastModified: now,
-      changeFrequency: "daily",
+      changeFrequency: "weekly",
       priority: 1.0,
     },
     {
-      url: `${base}/repertoire`,
+      url: `${base}/search`,
       lastModified: now,
-      changeFrequency: "weekly",
-      priority: 0.9,
+      changeFrequency: "daily",
+      priority: 0.8,
     },
     {
       url: `${base}/about`,

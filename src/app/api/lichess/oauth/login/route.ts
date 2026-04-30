@@ -21,8 +21,8 @@ export async function GET(req: Request) {
   const u = new URL(req.url);
   // Where to send the user after a successful exchange. Constrained to
   // a same-origin path to avoid open-redirect issues.
-  const rawNext = u.searchParams.get("next") ?? "/repertoire";
-  const next = rawNext.startsWith("/") ? rawNext : "/repertoire";
+  const rawNext = u.searchParams.get("next") ?? "/";
+  const next = rawNext.startsWith("/") ? rawNext : "/";
 
   const verifier = generateVerifier();
   const state = generateState();

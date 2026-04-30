@@ -1,90 +1,101 @@
 import type { Metadata } from "next";
-import { SearchForm } from "@/components/search-form";
-import { GameResults, PlayerResults } from "@/components/results-list";
-import { searchGames, searchPlayers } from "@/lib/queries";
+import Link from "next/link";
+import { Board } from "@/components/repertoire/board";
+import { SourcePickerForm } from "@/components/repertoire/source-picker";
+import { RepertoireExplorer } from "@/components/repertoire/explorer";
+import { filtersFromParams } from "@/lib/repertoire/filters";
 
 export const metadata: Metadata = {
-  title: "Chesscope — open chess data, search and repertoire",
+  // Use `absolute` to bypass the layout's title.template — homepage
+  // title already includes the brand, we don't want " · Chesscope"
+  // appended a second time.
+  title: {
+    absolute:
+      "Chesscope — opening repertoire from Lichess and Chess.com in one tree",
+  },
   description:
-    "Search the Lichess broadcast archive by player, event, or opening — and build any player's opening repertoire from Lichess and Chess.com in one interactive tree. No login.",
+    "Build any player's full opening repertoire from Lichess and Chess.com in one interactive tree. Stockfish engine, transposition-aware, save positions. Free, no login.",
   alternates: { canonical: "/" },
 };
 
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { q } = await searchParams;
-  const query = q?.trim() ?? "";
-
-  const [players, games] = query
-    ? await Promise.all([
-        searchPlayers(query, 20).catch(() => []),
-        searchGames(query, 25).catch(() => []),
-      ])
-    : [[], []];
-
-  const hasResults = query && (players.length > 0 || games.length > 0);
+  const sp = await searchParams;
+  const isBuilt = sp.built === "1";
+  const lichess = sp.lichess?.trim() || null;
+  const chesscom = sp.chesscom?.trim() || null;
+  const pgnEnabled = sp.pgn === "1";
+  const treeEnabled = sp.tree === "1";
+  const filters = filtersFromParams(sp);
+  // Initial moves passed in via the share-link URL. Each entry is a SAN
+  // separated by commas. The explorer validates against chess.js and
+  // ignores anything that doesn't make a legal move from the running
+  // position, so junk input fails closed (cursor stays at 0).
+  const initialSanLine = sp.moves
+    ? sp.moves
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
 
   return (
-    <div
-      className={
-        query
-          ? "container-narrow py-8 sm:py-10"
-          : "container-narrow py-16 sm:py-24"
-      }
-    >
-      <section className={query ? "" : "space-y-10"}>
-        {!query && (
-          <div className="space-y-5">
-            <p className="font-mono text-[11px] uppercase tracking-[.3em] text-brass">
-              ◆ Open chess data
-            </p>
-            <h1 className="font-display text-5xl sm:text-7xl font-light text-parchment-50 leading-[1.05]">
-              The full record,{" "}
-              <em className="font-display italic text-brass-light">
-                searchable
-              </em>
-              .
-            </h1>
-            <p className="text-parchment-100/75 max-w-xl text-lg leading-relaxed">
-              Every game from the Lichess broadcast archive, coaches preparing
-              for tournaments, journalists tracking players, parents looking up
-              their kids&rsquo; games. No login, no rate limits, no tracking.
-            </p>
-          </div>
+    <div className="container-wide py-10 sm:py-14">
+      <header
+        className={
+          isBuilt
+            ? "mb-6 flex items-center justify-between gap-4"
+            : "mb-8 sm:mb-12 space-y-3 max-w-3xl"
+        }
+      >
+        <p className="font-mono text-[11px] uppercase tracking-[.3em] text-brass">
+          ◆ Repertoire Explorer
+        </p>
+        {isBuilt ? (
+          <Link
+            href="/"
+            className="font-mono text-[11px] uppercase tracking-[.25em] text-brass-light hover:underline"
+          >
+            ← Back to form
+          </Link>
+        ) : (
+          <h1 className="font-display text-4xl sm:text-5xl font-light text-parchment-50 leading-[1.1]">
+            See any player&rsquo;s full opening repertoire —{" "}
+            <em className="font-display italic text-brass-light">
+              Lichess and Chess.com
+            </em>{" "}
+            in one tree.
+          </h1>
         )}
+      </header>
 
-        <SearchForm initialQuery={query} size="lg" />
-      </section>
-
-      {query && (
-        <section className="mt-10 space-y-12">
-          {hasResults ? (
-            <>
-              {players.length > 0 && <PlayerResults players={players} />}
-              {games.length > 0 && (
-                <GameResults
-                  games={games}
-                  caption={`Games matching "${query}"`}
-                />
-              )}
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <p className="font-display text-2xl text-parchment-100/70">
-                No matches for{" "}
-                <em className="text-brass-light">&ldquo;{query}&rdquo;</em>
-              </p>
-              <p className="mt-3 text-sm text-parchment-300/60">
-                Try a partial name (e.g. &ldquo;carl&rdquo; instead of
-                &ldquo;Carlsen, Magnus&rdquo;).
-              </p>
-            </div>
-          )}
-        </section>
+      {isBuilt ? (
+        <RepertoireExplorer
+          lichessUser={lichess}
+          chesscomUser={chesscom}
+          pgnEnabled={pgnEnabled}
+          treeEnabled={treeEnabled}
+          filters={filters}
+          initialSanLine={initialSanLine}
+        />
+      ) : (
+        <FormView />
       )}
+    </div>
+  );
+}
+
+function FormView() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
+      <div className="lg:col-span-8 lg:order-2">
+        <Board />
+      </div>
+      <aside className="lg:col-span-4 lg:order-1 space-y-8 lg:sticky lg:top-6 lg:self-start">
+        <SourcePickerForm />
+      </aside>
     </div>
   );
 }

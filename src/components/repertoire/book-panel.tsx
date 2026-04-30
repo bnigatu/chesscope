@@ -300,7 +300,7 @@ function NeedsAuth() {
   const next =
     typeof window !== "undefined"
       ? window.location.pathname + window.location.search
-      : "/repertoire";
+      : "/";
   const href = `/api/lichess/oauth/login?next=${encodeURIComponent(next)}`;
   return (
     <div className="px-4 py-6 text-center space-y-3">

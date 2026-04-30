@@ -7,33 +7,36 @@ import { JsonLd } from "@/components/json-ld";
 export const metadata: Metadata = {
   metadataBase: new URL("https://chesscope.com"),
   title: {
-    default: "Chesscope — open chess data, search and repertoire",
+    default:
+      "Chesscope — opening repertoire from Lichess and Chess.com in one tree",
     template: "%s · Chesscope",
   },
   description:
-    "Search the full Lichess broadcast archive — and build any player's opening repertoire from Lichess and Chess.com in one tree. Free, open chess data, no login.",
+    "Build any player's full opening repertoire from Lichess and Chess.com in one interactive tree. Stockfish engine, transposition-aware, save positions, share lines. Plus broadcast game search. Free, no login.",
   keywords: [
-    // search
+    // repertoire (lead — this is now the primary product)
+    "opening repertoire",
+    "opening tree",
+    "chess opening explorer",
+    "lichess repertoire",
+    "chess.com repertoire",
+    "chess preparation",
+    "stockfish opening analysis",
+    "pgn analysis",
+    "openingtree alternative",
+    // search (secondary)
     "chess search",
     "chess database",
     "chess broadcasts",
     "lichess study search",
     "FIDE games",
-    "chess scouting",
     "tournament archive",
-    // repertoire
-    "opening repertoire",
-    "opening tree",
-    "lichess repertoire",
-    "chess.com repertoire",
-    "chess opening explorer",
-    "pgn analysis",
-    "chess prep",
   ],
   openGraph: {
-    title: "Chesscope — open chess data, search and repertoire",
+    title:
+      "Chesscope — opening repertoire from Lichess and Chess.com in one tree",
     description:
-      "Search broadcast games, player histories, and tournament archives — and build any player's opening repertoire from Lichess and Chess.com in one tree.",
+      "Build any player's full opening repertoire from Lichess and Chess.com in one tree, with Stockfish engine and transposition awareness. Plus broadcast game search.",
     type: "website",
     url: "https://chesscope.com",
     siteName: "Chesscope",
@@ -52,9 +55,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Chesscope — open chess data, search and repertoire",
+    title:
+      "Chesscope — opening repertoire from Lichess and Chess.com in one tree",
     description:
-      "Search broadcast games, player histories, and tournament archives — and build any player's opening repertoire from Lichess and Chess.com in one tree.",
+      "Build any player's full opening repertoire from Lichess and Chess.com in one tree, with Stockfish engine and transposition awareness. Plus broadcast game search.",
     images: ["/android-chrome-512x512.png"],
   },
   robots: { index: true, follow: true },
@@ -98,14 +102,14 @@ export default function RootLayout({
                 url: "https://chesscope.com/",
                 name: "Chesscope",
                 description:
-                  "Open chess data — search broadcast games and build opening repertoires.",
+                  "Build any player's full opening repertoire from Lichess and Chess.com in one tree, with Stockfish engine and transposition awareness. Plus broadcast game search.",
                 inLanguage: "en",
                 potentialAction: {
                   "@type": "SearchAction",
                   target: {
                     "@type": "EntryPoint",
                     urlTemplate:
-                      "https://chesscope.com/?q={search_term_string}",
+                      "https://chesscope.com/search?q={search_term_string}",
                   },
                   "query-input": "required name=search_term_string",
                 },

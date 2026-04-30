@@ -98,7 +98,7 @@ export function SourcePickerForm() {
         throw new Error("Pick at least one source.");
       }
 
-      router.push(`/repertoire?${params.toString()}`);
+      router.push(`/?${params.toString()}`);
     } catch (caught) {
       setErr(caught instanceof Error ? caught.message : String(caught));
       setBusy(false);
@@ -116,7 +116,7 @@ export function SourcePickerForm() {
       window.sessionStorage.setItem(TREE_SESSION_KEY, text);
       const params = new URLSearchParams({ built: "1", tree: "1" });
       filtersToParams(params, saved.filters);
-      router.push(`/repertoire?${params.toString()}`);
+      router.push(`/?${params.toString()}`);
     } catch (caught) {
       setErr(caught instanceof Error ? caught.message : String(caught));
       setBusy(false);

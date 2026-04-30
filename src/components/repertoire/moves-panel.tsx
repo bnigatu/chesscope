@@ -169,25 +169,14 @@ function MultiGameRow({
         {move.count.toLocaleString()}
       </td>
       <td className="px-3 py-2 w-1/2">
-        <div className="flex h-4 rounded-sm overflow-hidden border border-parchment-50/10">
-          <ResultSegment
-            pct={w}
-            count={move.whiteWins}
-            className="bg-parchment-50 text-ink-900"
-            label="White wins"
-          />
-          <ResultSegment
-            pct={d}
-            count={move.draws}
-            className="bg-parchment-300/40 text-ink-900"
-            label="Draws"
-          />
-          <ResultSegment
-            pct={l}
-            count={move.blackWins}
-            className="bg-oxblood text-parchment-50"
-            label="Black wins"
-          />
+        <div className="flex h-3 rounded-sm overflow-hidden border border-parchment-50/10">
+          {w > 0 && (
+            <div className="bg-parchment-50" style={{ width: `${w}%` }} />
+          )}
+          {d > 0 && (
+            <div className="bg-parchment-300/40" style={{ width: `${d}%` }} />
+          )}
+          {l > 0 && <div className="bg-oxblood" style={{ width: `${l}%` }} />}
         </div>
       </td>
     </tr>
@@ -276,38 +265,6 @@ function SingleGameRow({
         </div>
       </td>
     </tr>
-  );
-}
-
-/**
- * Single colored segment of a W/D/L bar with its count rendered inside
- * when the segment is wide enough. Mirrors openingtree.com's behaviour
- * where the absolute number is shown on the bar so the user doesn't
- * have to multiply percentages mentally.
- */
-function ResultSegment({
-  pct,
-  count,
-  className,
-  label,
-}: {
-  pct: number;
-  count: number;
-  className: string;
-  label: string;
-}) {
-  if (pct <= 0 || count <= 0) return null;
-  return (
-    <div
-      className={cx(
-        "flex items-center justify-center text-[10px] font-mono font-bold leading-none",
-        className
-      )}
-      style={{ width: `${pct}%` }}
-      title={`${label}: ${count.toLocaleString()}`}
-    >
-      {pct >= 12 ? count.toLocaleString() : ""}
-    </div>
   );
 }
 

@@ -6,6 +6,14 @@ import { Board, type BoardArrow } from "./board";
 import { ControlsBar } from "./controls-bar";
 import { EnginePanel } from "./engine-panel";
 import { EvalBar } from "./eval-bar";
+import { ShortcutCheatsheet } from "./shortcut-cheatsheet";
+import { useShortcuts, type Shortcut } from "@/lib/repertoire/shortcuts";
+import {
+  cacheKey,
+  getCached,
+  putCached,
+  pruneExpired,
+} from "@/lib/repertoire/cache";
 import { MoveListPanel, type Move } from "./move-list-panel";
 import { MovesPanel } from "./moves-panel";
 import { BookPanel } from "./book-panel";
@@ -89,6 +97,7 @@ export function RepertoireExplorer({
     cp: number | null;
     mate: number | null;
   }>({ cp: null, mate: null });
+  const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   const [orientation, setOrientation] = useState<"white" | "black">(
     filters.color
   );
@@ -185,7 +194,40 @@ export function RepertoireExplorer({
     abortRef.current = ctl;
     setStatus("loading");
 
+    // IndexedDB cache key for this (sources × filters) tuple. Hit
+    // before any network calls — instant load on repeat visits.
+    const idbKey = cacheKey({
+      lichessUser,
+      chesscomUser,
+      pgnFilename: pgnFilenameRef.current,
+      filters,
+    });
+
     (async () => {
+      // Path 1a: try the IDB cache first.
+      try {
+        const cached = await getCached(idbKey);
+        if (cached && !ctl.signal.aborted) {
+          treeRef.current = cached.tree;
+          // Approximate per-source counts from the cached tree's start
+          // node — total games visited equals the start-position count.
+          const total =
+            cached.tree.byFen[positionFen(STARTING_FEN)]?.count ?? 0;
+          setCounts({
+            lichess: lichessUser ? total : 0,
+            chesscom: chesscomUser ? total : 0,
+            pgn: pgnText ? total : 0,
+          });
+          setTreeTick((t) => t + 1);
+          setStatus("done");
+          // Best-effort housekeeping: prune anything past TTL.
+          void pruneExpired();
+          return;
+        }
+      } catch {
+        /* cache miss / IDB unavailable — fall through to ingest */
+      }
+
       const sources: AsyncIterable<{
         ref: { source: IngestSource };
       }>[] = [];
@@ -222,12 +264,37 @@ export function RepertoireExplorer({
             setTreeTick((t) => t + 1);
             ctl.abort();
             setStatus("done");
+            // Save partial tree too — limit-truncated trees are
+            // legitimate cache material on subsequent visits.
+            void putCached({
+              key: idbKey,
+              tree: treeRef.current,
+              savedAt: Date.now(),
+              sources: {
+                lichess: lichessUser ?? undefined,
+                chesscom: chesscomUser ?? undefined,
+                pgnFilename: pgnFilenameRef.current ?? undefined,
+              },
+              filters,
+            });
             return;
           }
           if (processed % 25 === 0) setTreeTick((t) => t + 1);
         }
         setTreeTick((t) => t + 1);
         setStatus("done");
+        // Persist completed tree for next visit.
+        void putCached({
+          key: idbKey,
+          tree: treeRef.current,
+          savedAt: Date.now(),
+          sources: {
+            lichess: lichessUser ?? undefined,
+            chesscom: chesscomUser ?? undefined,
+            pgnFilename: pgnFilenameRef.current ?? undefined,
+          },
+          filters,
+        });
       } catch (err) {
         if (ctl.signal.aborted) {
           setStatus((s) => (s === "loading" ? "cancelled" : s));
@@ -455,8 +522,83 @@ export function RepertoireExplorer({
     setCursor(0);
   };
 
+  // Keyboard shortcuts. Bindings are matched against `e.key` directly.
+  // Single chars (f, c) match lowercase; "Shift+F" matches the
+  // uppercase F that comes through with shift held. Arrow keys carry
+  // their full name. The hook reads from a ref so we don't need to
+  // memoize this array — it's safe to recreate on every render.
+  const shortcuts: Shortcut[] = [
+    {
+      test: (e) => e.key === "f",
+      hint: "F",
+      description: "Flip board",
+      action: flip,
+    },
+    {
+      test: (e) => e.key === "ArrowLeft",
+      hint: "←",
+      description: "Previous move",
+      action: undo,
+    },
+    {
+      test: (e) => e.key === "ArrowRight",
+      hint: "→",
+      description: "Next move",
+      action: redo,
+    },
+    {
+      test: (e) => e.key === "ArrowUp",
+      hint: "↑",
+      description: "Jump to start",
+      action: jumpStart,
+    },
+    {
+      test: (e) => e.key === "ArrowDown",
+      hint: "↓",
+      description: "Jump to end",
+      action: jumpEnd,
+    },
+    {
+      test: (e) => e.key === "c",
+      hint: "C",
+      description: "Switch color",
+      action: switchColor,
+    },
+    {
+      test: (e) => e.key === "F",
+      hint: "Shift+F",
+      description: "Copy FEN",
+      action: copyFen,
+    },
+    {
+      test: (e) => e.key === "L",
+      hint: "Shift+L",
+      description: "Copy share link",
+      action: copyShare,
+    },
+    {
+      // H for help (no shift required, single key). Also accept ?
+      // for users on layouts where it's a single-press key, and the
+      // physical Shift+/ combo as a fallback for the conventional ?
+      // help shortcut on US/UK keyboards.
+      test: (e) =>
+        e.key === "h" ||
+        e.key === "?" ||
+        (e.shiftKey && e.code === "Slash"),
+      hint: "H",
+      description: "Show this cheatsheet",
+      action: () => setCheatsheetOpen(true),
+    },
+  ];
+  useShortcuts(shortcuts);
+
   return (
     <div className="space-y-4">
+      <ShortcutCheatsheet
+        shortcuts={shortcuts}
+        open={cheatsheetOpen}
+        onClose={() => setCheatsheetOpen(false)}
+      />
       <Progress
         status={status}
         counts={counts}
@@ -482,6 +624,7 @@ export function RepertoireExplorer({
             onCopyFen={copyFen}
             onCopyShare={copyShare}
             onClear={clear}
+            onShortcuts={() => setCheatsheetOpen(true)}
           />
           <div className="flex gap-2 max-w-[680px] mx-auto">
             <EvalBar

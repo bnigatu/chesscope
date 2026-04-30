@@ -4,8 +4,8 @@
   "description": "Open chess data search",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0d0e0c",
-  "theme_color": "#0d0e0c",
+  "background_color": "#141414",
+  "theme_color": "#141414",
   "icons": [
     {
       "src": "/icon.svg",

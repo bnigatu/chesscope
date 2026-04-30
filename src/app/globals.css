@@ -6,9 +6,9 @@
 
 @layer base {
   :root {
-    --bg: 13 14 12; /* ink-900 */
-    --bg-raised: 20 22 26; /* ink-800 */
-    --bg-card: 28 31 36; /* ink-700 */
+    --bg: 20 20 20; /* ink-900 (#141414) */
+    --bg-raised: 28 30 34; /* ink-800 (#1c1e22) */
+    --bg-card: 37 40 45; /* ink-700 (#25282d) */
     --fg: 245 239 226; /* parchment-50 */
     --fg-muted: 194 178 145; /* parchment-300 */
     --accent: 122 30 34; /* oxblood */

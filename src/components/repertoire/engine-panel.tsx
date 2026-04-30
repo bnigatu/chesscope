@@ -119,6 +119,25 @@ export function EnginePanel({
     setSettings((prev) => ({ ...prev, [k]: v }));
   }
 
+  // Global "e" toggles engine on/off. Lives here (not in the
+  // explorer's shortcut registry) because the engine's enabled state
+  // is local to this component.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "e") return;
+      const t = e.target as HTMLElement | null;
+      if (t) {
+        const tag = t.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        if (t.isContentEditable) return;
+      }
+      e.preventDefault();
+      setSettings((prev) => ({ ...prev, enabled: !prev.enabled }));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // Worker lifecycle. Re-runs when toggled, or when the user picks a
   // different engine, or when MultiPV changes (which requires re-handshake).
   useEffect(() => {

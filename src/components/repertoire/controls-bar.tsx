@@ -12,6 +12,7 @@ export type ControlHandlers = {
   onCopyFen: () => void;
   onCopyShare: () => void;
   onClear: () => void;
+  onShortcuts: () => void;
 };
 
 type Control = {
@@ -38,6 +39,7 @@ const CONTROLS: Control[] = [
     glyph: "✕",
     destructive: true,
   },
+  { id: "onShortcuts", label: "Keyboard shortcuts", shortcut: "H", glyph: "?" },
 ];
 
 export function ControlsBar(handlers: Partial<ControlHandlers> = {}) {

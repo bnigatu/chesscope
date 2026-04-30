@@ -7,11 +7,13 @@ const config: Config = {
       colors: {
         // "Tournament hall after hours", deep ink, parchment, oxblood, brass.
         ink: {
-          900: "#0d0e0c",
-          800: "#14161a",
-          700: "#1c1f24",
-          600: "#272b32",
-          500: "#3a3f48",
+          // Lifted from near-black to a warmer dark gray (chesspulse-style)
+          // so the page is less harsh while preserving panel/card layering.
+          900: "#141414",
+          800: "#1c1e22",
+          700: "#25282d",
+          600: "#30343a",
+          500: "#3f444c",
         },
         parchment: {
           50: "#f5efe2",

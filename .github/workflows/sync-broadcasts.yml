@@ -21,6 +21,14 @@ jobs:
   sync:
     name: Ingest broadcast PGN dump
     runs-on: ubuntu-latest
+    # Stays at 360 (the GitHub max) so the first few runs after
+    # ingest_broadcasts.py started recording per-month SHA can chew
+    # through the historical backlog. Each completed month is
+    # persisted to sync_state and skipped on subsequent runs, so
+    # weekly runs converge to ~5–10 min once backfill is done.
+    # We can lower this to ~60 once `select count(*) from sync_state
+    # where key like 'ingested_file:%'` matches the number of monthly
+    # dumps Lichess publishes.
     timeout-minutes: 360
 
     steps:

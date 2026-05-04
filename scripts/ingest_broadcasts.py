@@ -707,6 +707,47 @@ def update_sync_state(
     )
 
 
+# Per-file ingestion bookkeeping. Each successfully-processed monthly
+# dump records its filename → SHA256 in `sync_state` under the
+# `ingested_file:<filename>` key. Subsequent runs skip any month
+# whose published SHA matches what's stored, so we only pay the
+# download+parse+upsert cost for new or updated months. Without this
+# the script reprocesses the entire 5-year backlog every weekly run
+# and never completes within GitHub Actions' 6h budget.
+INGESTED_FILE_KEY_PREFIX = "ingested_file:"
+
+
+def load_ingested_files(client: libsql_client.Client) -> dict[str, str]:
+    """Returns {filename: sha256} for months that have been fully
+    ingested before. Robust to a missing sync_state table."""
+    try:
+        rs = client.execute(
+            "SELECT key, value FROM sync_state WHERE key LIKE ?",
+            [f"{INGESTED_FILE_KEY_PREFIX}%"],
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"[chesscope] couldn't read sync_state for completed files "
+            f"({exc!r}); will re-process everything this run",
+            file=sys.stderr,
+        )
+        return {}
+    out: dict[str, str] = {}
+    for row in rs.rows:
+        key = row[0]
+        if isinstance(key, str) and key.startswith(INGESTED_FILE_KEY_PREFIX):
+            out[key[len(INGESTED_FILE_KEY_PREFIX):]] = row[1]
+    return out
+
+
+def mark_file_ingested(
+    client: libsql_client.Client, filename: str, sha256: str
+) -> None:
+    update_sync_state(
+        client, f"{INGESTED_FILE_KEY_PREFIX}{filename}", sha256
+    )
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -825,17 +866,63 @@ def main() -> int:
         else fetch_published_checksums(session)
     )
 
+    # Load the set of months we've already ingested at a known SHA.
+    # We always re-process the most-recent discovered month even if
+    # its SHA matches, because Lichess appends games to the current
+    # month's dump throughout the month — the SHA may match in the
+    # middle of a calendar month but we want to pick up additions.
+    # Older months are immutable once Lichess closes them, so SHA
+    # match means "nothing to do".
+    ingested_files: dict[str, str] = (
+        load_ingested_files(client) if client is not None else {}
+    )
+    if ingested_files:
+        print(
+            f"[chesscope] {len(ingested_files)} months previously ingested; "
+            f"will skip those whose SHA hasn't changed",
+            file=sys.stderr,
+        )
+
     started = time.time()
     total = 0
     last_source = sources[-1][1] if sources else ""
     downloaded_paths: list[Path] = []
+    # Track the most-recent (newest) month label so we know not to
+    # skip it on SHA match. `sources` is sorted newest-first.
+    newest_month_label = sources[0][0] if sources else None
 
     for month_label, source in sources:
         last_source = source
 
-        # Resolve to a local path (download if URL).
+        # Resolve filename early so we can skip-before-download.
         if source.startswith(("http://", "https://")):
             filename = source.rsplit("/", 1)[-1]
+        else:
+            filename = Path(source).name
+
+        # Skip if this month's published SHA matches what we've
+        # already ingested. The newest discovered month is exempt —
+        # Lichess appends games to it throughout the calendar month.
+        published_sha = checksums.get(filename)
+        already_sha = ingested_files.get(filename)
+        is_newest = month_label == newest_month_label
+        if (
+            published_sha
+            and already_sha == published_sha
+            and not is_newest
+            and not args.url
+            and not args.month
+            and not args.dry_run
+        ):
+            print(
+                f"[chesscope] {month_label}: already ingested at "
+                f"sha {published_sha[:16]}…; skipping",
+                file=sys.stderr,
+            )
+            continue
+
+        # Resolve to a local path (download if URL).
+        if source.startswith(("http://", "https://")):
             local_path = cache_dir / filename
             if args.skip_download:
                 if not local_path.exists():
@@ -912,6 +999,21 @@ def main() -> int:
                 total += write_batch(client, batch)
             else:
                 total += len(batch)
+
+        # Month finished cleanly. Record its SHA so future runs can
+        # skip it. Only do this for the standard "ingest all months"
+        # path — not for --url, --month, --limit, or --dry-run, which
+        # are partial / explicit invocations.
+        if (
+            client is not None
+            and published_sha
+            and not args.url
+            and not args.month
+            and not args.limit
+            and not args.dry_run
+        ):
+            mark_file_ingested(client, filename, published_sha)
+            ingested_files[filename] = published_sha
 
         if args.limit and total >= args.limit:
             break

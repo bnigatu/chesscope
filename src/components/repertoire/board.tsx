@@ -37,6 +37,8 @@ type BoardProps = {
   size?: number;
   /** Named palette key. Defaults to 'blue' (chess.com Blue). */
   theme?: BoardThemeId;
+  /** Piece slide animation duration in ms. 0 disables animation. */
+  animationMs?: number;
 };
 
 function BoardImpl({
@@ -46,6 +48,7 @@ function BoardImpl({
   arrows,
   size = 640,
   theme = "blue",
+  animationMs,
 }: BoardProps) {
   const palette = BOARD_THEMES[theme] ?? BOARD_THEMES.blue;
   return (
@@ -58,6 +61,8 @@ function BoardImpl({
           position: fen,
           boardOrientation: orientation,
           allowDragging: !!onPieceDrop,
+          animationDurationInMs:
+            typeof animationMs === "number" ? animationMs : undefined,
           darkSquareStyle: { backgroundColor: palette.dark },
           lightSquareStyle: { backgroundColor: palette.light },
           boardStyle: {

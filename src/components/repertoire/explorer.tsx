@@ -9,10 +9,18 @@ import { EvalBar } from "./eval-bar";
 import { ShortcutCheatsheet } from "./shortcut-cheatsheet";
 import { SettingsModal } from "./settings-modal";
 import {
+  ENGINE_DEFAULTS,
   loadEngineSettings,
   saveEngineSettings,
   type EngineSettings,
 } from "@/lib/repertoire/engine-config";
+import {
+  PIECE_ANIMATION_MS,
+  UI_PREFS_DEFAULTS,
+  loadUiPrefs,
+  saveUiPrefs,
+  type UiPrefs,
+} from "@/lib/repertoire/ui-prefs";
 import { useShortcuts, type Shortcut } from "@/lib/repertoire/shortcuts";
 import {
   cacheKey,
@@ -151,11 +159,44 @@ export function RepertoireExplorer({
   // Engine settings — lifted out of EnginePanel so the SettingsModal
   // can read/write the same source of truth. EnginePanel is now a
   // controlled component for these.
+  //
+  // IMPORTANT: do NOT read localStorage in useState's lazy initializer
+  // here. This component is "use client" but Next still SSRs it; on
+  // the server `loadEngineSettings()` returns defaults (no window),
+  // on the client first render it returns saved values. The two
+  // renders disagree → React #418 hydration mismatch (multiPv
+  // changes the number of <li> rows EnginePanel renders, which is
+  // what the diff catches). Defaults during render, hydrate from
+  // localStorage in a post-mount effect.
   const [engineSettings, setEngineSettings] =
-    useState<EngineSettings>(() => loadEngineSettings());
+    useState<EngineSettings>(ENGINE_DEFAULTS);
+  // Track whether we've finished the initial localStorage hydration so
+  // we don't write the temporary defaults back over a saved value.
+  const engineHydratedRef = useRef(false);
   useEffect(() => {
+    setEngineSettings(loadEngineSettings());
+    engineHydratedRef.current = true;
+  }, []);
+  useEffect(() => {
+    if (!engineHydratedRef.current) return;
     saveEngineSettings(engineSettings);
   }, [engineSettings]);
+
+  // UI preferences — same defaults-then-effect pattern as engine
+  // settings to avoid an SSR/CSR hydration mismatch (the suggestion-
+  // arrow toggle changes the rendered <Board>'s arrow set, which
+  // would diff between server and client if we read localStorage in
+  // useState's initializer).
+  const [uiPrefs, setUiPrefs] = useState<UiPrefs>(UI_PREFS_DEFAULTS);
+  const uiPrefsHydratedRef = useRef(false);
+  useEffect(() => {
+    setUiPrefs(loadUiPrefs());
+    uiPrefsHydratedRef.current = true;
+  }, []);
+  useEffect(() => {
+    if (!uiPrefsHydratedRef.current) return;
+    saveUiPrefs(uiPrefs);
+  }, [uiPrefs]);
 
   // Externally-bumpable counter so the modal can trigger an engine
   // restart. EnginePanel watches this and re-inits the worker.
@@ -446,6 +487,7 @@ export function RepertoireExplorer({
   //
   // Hovered always pops to full saturation in its own colour.
   const boardArrows = useMemo<BoardArrow[]>(() => {
+    if (!uiPrefs.showSuggestionArrows) return [];
     if (playedMoves.length === 0) return [];
     const topCount = playedMoves[0]?.count ?? 0;
     const result: BoardArrow[] = [];
@@ -463,9 +505,18 @@ export function RepertoireExplorer({
       const isMajor =
         i === 0 || (topCount > 0 && m.count / topCount >= 0.5);
       let color: string;
-      if (isMajor) {
-        // Chess.com-ish forest green. Solid for the dominant move,
-        // slightly softer for a co-dominant second.
+      if (uiPrefs.arrowMode === "all") {
+        // Uniform amber across all arrows; rank-falling opacity
+        // still gives a hint of relative frequency without the
+        // green "this is the main line" colour signal.
+        const opacity = [0.85, 0.65, 0.5, 0.4][i] ?? 0.35;
+        color = isHovered
+          ? "rgba(255, 170, 0, 1)"
+          : `rgba(255, 170, 0, ${opacity})`;
+      } else if (isMajor) {
+        // "Key Moves" mode: Chess.com-ish forest green. Solid for
+        // the dominant move, slightly softer for a co-dominant
+        // second.
         color = isHovered
           ? "rgba(93, 153, 72, 1)"
           : i === 0
@@ -484,7 +535,13 @@ export function RepertoireExplorer({
       });
     }
     return result;
-  }, [playedMoves, fen, hoveredMoveSan]);
+  }, [
+    playedMoves,
+    fen,
+    hoveredMoveSan,
+    uiPrefs.showSuggestionArrows,
+    uiPrefs.arrowMode,
+  ]);
 
   const positionStats: MoveDetails | null = useMemo(() => {
     const node = nodeAt(treeRef.current, currentFenKey);
@@ -729,6 +786,8 @@ export function RepertoireExplorer({
         boardSizeMin={BOARD_SIZE_MIN}
         boardSizeMax={BOARD_SIZE_MAX}
         boardSizeStep={BOARD_SIZE_STEP}
+        uiPrefs={uiPrefs}
+        onUiPrefsChange={setUiPrefs}
         onShowShortcuts={() => {
           setSettingsOpen(false);
           setCheatsheetOpen(true);
@@ -796,6 +855,7 @@ export function RepertoireExplorer({
                   arrows={boardArrows}
                   size={boardSize}
                   theme={boardTheme}
+                  animationMs={PIECE_ANIMATION_MS[uiPrefs.pieceAnimation]}
                 />
               </div>
               {/* Vertical strip on the right edge of the board with a

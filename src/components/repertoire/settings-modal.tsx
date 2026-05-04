@@ -11,6 +11,11 @@ import {
   type EngineId,
   type EngineSettings,
 } from "@/lib/repertoire/engine-config";
+import type {
+  ArrowMode,
+  PieceAnimationSpeed,
+  UiPrefs,
+} from "@/lib/repertoire/ui-prefs";
 import { BOARD_THEMES, type BoardThemeId } from "./board";
 
 type TabId = "engine" | "interface" | "board";
@@ -37,6 +42,8 @@ export function SettingsModal({
   boardSizeMax,
   boardSizeStep,
   // interface
+  uiPrefs,
+  onUiPrefsChange,
   onShowShortcuts,
 }: {
   open: boolean;
@@ -51,6 +58,8 @@ export function SettingsModal({
   boardSizeMin: number;
   boardSizeMax: number;
   boardSizeStep: number;
+  uiPrefs: UiPrefs;
+  onUiPrefsChange: (next: UiPrefs) => void;
   onShowShortcuts: () => void;
 }) {
   const [tab, setTab] = useState<TabId>("engine");
@@ -150,7 +159,11 @@ export function SettingsModal({
               />
             )}
             {tab === "interface" && (
-              <InterfaceTab onShowShortcuts={onShowShortcuts} />
+              <InterfaceTab
+                prefs={uiPrefs}
+                onChange={onUiPrefsChange}
+                onShowShortcuts={onShowShortcuts}
+              />
             )}
             {tab === "board" && (
               <BoardTab
@@ -256,9 +269,58 @@ function EngineTab({
 // ──────────────────────────────────────────────────────────────────
 // Interface tab
 
-function InterfaceTab({ onShowShortcuts }: { onShowShortcuts: () => void }) {
+function InterfaceTab({
+  prefs,
+  onChange,
+  onShowShortcuts,
+}: {
+  prefs: UiPrefs;
+  onChange: (next: UiPrefs) => void;
+  onShowShortcuts: () => void;
+}) {
   return (
     <div className="space-y-5 max-w-md">
+      <Section title="Board overlays">
+        <ToggleRow
+          label="Suggestion arrows"
+          hint="Green / amber arrows on the board showing the player's most-played continuations from this position."
+          checked={prefs.showSuggestionArrows}
+          onChange={(v) =>
+            onChange({ ...prefs, showSuggestionArrows: v })
+          }
+        />
+        <SelectRow
+          label="Move-strength colouring"
+          hint="Key Moves highlights the dominant continuation in green; All Moves uses one uniform colour for every arrow."
+          value={prefs.arrowMode}
+          options={[
+            { value: "key", label: "Key Moves (default)" },
+            { value: "all", label: "All Moves" },
+          ]}
+          disabled={!prefs.showSuggestionArrows}
+          onChange={(v) =>
+            onChange({ ...prefs, arrowMode: v as ArrowMode })
+          }
+        />
+      </Section>
+
+      <Section title="Animation">
+        <SelectRow
+          label="Piece animation speed"
+          hint="Slide duration when a move is applied to the board."
+          value={prefs.pieceAnimation}
+          options={[
+            { value: "none", label: "None (instant)" },
+            { value: "fast", label: "Fast" },
+            { value: "medium", label: "Medium (default)" },
+            { value: "slow", label: "Slow" },
+          ]}
+          onChange={(v) =>
+            onChange({ ...prefs, pieceAnimation: v as PieceAnimationSpeed })
+          }
+        />
+      </Section>
+
       <Section title="Keyboard">
         <button
           type="button"
@@ -276,13 +338,109 @@ function InterfaceTab({ onShowShortcuts }: { onShowShortcuts: () => void }) {
           time outside an input.
         </p>
       </Section>
+    </div>
+  );
+}
 
-      <Section title="More options coming">
-        <p className="text-xs text-parchment-300/65 leading-relaxed">
-          Move-strength colouring, suggestion-arrow toggle, animation speed —
-          slated for a follow-up.
-        </p>
-      </Section>
+/**
+ * Labelled <select> row matching the modal's other field styling.
+ * Accepts disabled state so dependent settings (move-strength
+ * colouring depends on arrows being on) can grey out cleanly.
+ */
+function SelectRow({
+  label,
+  hint,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  options: { value: string; label: string }[];
+  disabled?: boolean;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <div
+      className={cx(
+        "space-y-1 mt-3",
+        disabled && "opacity-50 pointer-events-none"
+      )}
+    >
+      <label className="text-[10px] uppercase tracking-[.18em] text-parchment-300/60">
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cx(
+          "w-full bg-ink-900/60 border border-parchment-50/10 rounded-sm",
+          "px-2 py-1.5 text-sm font-mono text-parchment-100",
+          "focus:border-brass/50 outline-none"
+        )}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {hint && (
+        <p className="text-[11px] text-parchment-300/55 italic">{hint}</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Switch-style toggle, brand-coloured. ARIA `role=switch` so screen
+ * readers announce it correctly. We also accept a click on the label
+ * row so the whole right-side hit area flips the state.
+ */
+function ToggleRow({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-1">
+      <div className="min-w-0">
+        <p className="text-sm text-parchment-100">{label}</p>
+        {hint && (
+          <p className="mt-1 text-[11px] text-parchment-300/55 italic leading-snug">
+            {hint}
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={cx(
+          "shrink-0 mt-0.5 relative inline-flex h-5 w-9 items-center rounded-full",
+          "border transition-colors",
+          checked
+            ? "bg-brass/40 border-brass/60"
+            : "bg-parchment-50/8 border-parchment-50/15"
+        )}
+      >
+        <span
+          className={cx(
+            "inline-block h-3.5 w-3.5 rounded-full bg-parchment-50 transition-transform",
+            checked ? "translate-x-[18px]" : "translate-x-0.5"
+          )}
+        />
+      </button>
     </div>
   );
 }

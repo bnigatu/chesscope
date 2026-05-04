@@ -1,0 +1,11 @@
+# Cross-origin isolation for Stockfish workers. Without these headers
+# on the engine .js / .wasm responses, a Worker spawned from one of
+# them does NOT inherit cross-origin isolation from the page, so
+# SharedArrayBuffer is unavailable and the multi-threaded engine
+# (lite-multi) fails pthread setup with an empty "unknown worker
+# error". Cloudflare's static asset binding reads this _headers file
+# and applies the listed headers to matching responses.
+/stockfish/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Resource-Policy: same-origin

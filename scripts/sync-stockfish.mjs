@@ -22,6 +22,8 @@ import {
   existsSync,
   mkdirSync,
   copyFileSync,
+  readFileSync,
+  writeFileSync,
   readdirSync,
   statSync,
   unlinkSync,
@@ -60,6 +62,31 @@ for (const entry of readdirSync(targetDir)) {
   }
 }
 
+// Header prepended to every .js engine file we serve. Makes the
+// provenance chain explicit so anyone reading the file in DevTools
+// can see chesscope is *redistributing* upstream Stockfish (under
+// the GPL-3.0 it was released under), not claiming authorship.
+//
+// The npm `stockfish` package's own banner — which contains a
+// `(c) 2026, Chess.com, LLC` line because the upstream maintainer
+// is employed there — is preserved verbatim below our header, as
+// GPL-3.0 §5 requires us to keep their copyright notices intact.
+const ATTRIBUTION_HEADER = `/*!
+ * Stockfish (WebAssembly build), redistributed by chesscope.com under GPL-3.0.
+ *
+ *   Engine source:    https://github.com/official-stockfish/Stockfish
+ *                       (c) Tord Romstad, Marco Costalba, Joona Kiiski,
+ *                           Gary Linscott, and the Stockfish contributors.
+ *   WASM packaging:   https://github.com/nmrugg/stockfish.js (npm: stockfish)
+ *
+ * Chesscope is independent open-source software (https://github.com/bnigatu/chesscope)
+ * and is NOT affiliated with, endorsed by, or sponsored by Chess.com, LLC.
+ * The "Chess.com, LLC" copyright line in the banner immediately below is the
+ * upstream WASM-packaging maintainer's employer copyright, preserved here
+ * unmodified to comply with GPL-3.0.
+ */
+`;
+
 for (const file of FILES_TO_COPY) {
   const src = join(sourceDir, file);
   const dst = join(targetDir, file);
@@ -67,9 +94,17 @@ for (const file of FILES_TO_COPY) {
     console.error(`[sync-stockfish] missing ${src}`);
     process.exit(1);
   }
-  copyFileSync(src, dst);
+  if (file.endsWith(".js")) {
+    // Prepend our attribution; preserve upstream banner & code byte-for-byte.
+    const upstream = readFileSync(src);
+    writeFileSync(dst, ATTRIBUTION_HEADER);
+    writeFileSync(dst, upstream, { flag: "a" });
+  } else {
+    // .wasm is binary; copy as-is.
+    copyFileSync(src, dst);
+  }
 }
 
 console.log(
-  `[sync-stockfish] copied ${FILES_TO_COPY.length} engine files to public/stockfish/`
+  `[sync-stockfish] copied ${FILES_TO_COPY.length} engine files to public/stockfish/ (with chesscope attribution header on .js)`
 );

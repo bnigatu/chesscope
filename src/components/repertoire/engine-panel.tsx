@@ -5,10 +5,16 @@ import { Chess } from "chess.js";
 import { cx } from "@/lib/utils";
 
 const ENGINES = {
+  "lite-multi": {
+    file: "/stockfish/stockfish-18-lite.js",
+    label: "Stockfish 18 NNUE (lite, MT)",
+    description:
+      "~7MB, multi-threaded NNUE — fastest. Needs SharedArrayBuffer.",
+  },
   "lite-single": {
     file: "/stockfish/stockfish-18-lite-single.js",
     label: "Stockfish 18 NNUE (lite)",
-    description: "~7MB, single-threaded, full NNUE — best quality",
+    description: "~7MB, single-threaded NNUE — works everywhere",
   },
   asm: {
     file: "/stockfish/stockfish-18-asm.js",
@@ -18,6 +24,24 @@ const ENGINES = {
 } as const;
 
 type EngineId = keyof typeof ENGINES;
+
+/**
+ * Multi-threaded Stockfish needs SharedArrayBuffer, which is gated
+ * behind cross-origin isolation. We set COOP=same-origin and
+ * COEP=credentialless globally (next.config.ts), but a browser may
+ * still refuse — old version, isolation downgraded by an extension,
+ * etc. `crossOriginIsolated` is the canonical runtime flag.
+ *
+ * Anything else falls back to lite-single, which is identical
+ * weights, just sequential.
+ */
+function isMtSupported(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    typeof SharedArrayBuffer !== "undefined" &&
+    window.crossOriginIsolated === true
+  );
+}
 
 const STARTING_FEN =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -32,7 +56,7 @@ type Settings = {
 };
 
 const DEFAULTS: Settings = {
-  engineId: "lite-single",
+  engineId: "lite-multi",
   depth: 22,
   multiPv: 3,
   enabled: true,
@@ -40,14 +64,24 @@ const DEFAULTS: Settings = {
 
 function loadSettings(): Settings {
   if (typeof window === "undefined") return DEFAULTS;
+  // Pick a sensible default for whatever the user's browser actually
+  // supports. If they have an older settings blob with "lite-multi"
+  // saved but no SAB now, fall back transparently — otherwise the
+  // worker would crash on construction.
+  const fallbackDefault: EngineId = isMtSupported()
+    ? "lite-multi"
+    : "lite-single";
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULTS;
+    if (!raw) return { ...DEFAULTS, engineId: fallbackDefault };
     const parsed = JSON.parse(raw) as Partial<Settings>;
-    const engineId =
+    let engineId: EngineId =
       parsed.engineId && parsed.engineId in ENGINES
-        ? parsed.engineId
-        : DEFAULTS.engineId;
+        ? (parsed.engineId as EngineId)
+        : fallbackDefault;
+    if (engineId === "lite-multi" && !isMtSupported()) {
+      engineId = "lite-single";
+    }
     return {
       engineId,
       depth: clamp(parsed.depth ?? DEFAULTS.depth, 12, 30),
@@ -55,7 +89,7 @@ function loadSettings(): Settings {
       enabled: parsed.enabled ?? DEFAULTS.enabled,
     };
   } catch {
-    return DEFAULTS;
+    return { ...DEFAULTS, engineId: fallbackDefault };
   }
 }
 
@@ -221,14 +255,23 @@ export function EnginePanel({
       if (data === "uciok") {
         // Engine options must be set after uciok and before any
         // position/go. Order chosen to match Lichess's stockfish.js
-        // initialization. Setting Hash to 8MB (instead of default
-        // 16MB) reduces the chance of WASM allocation traps in
-        // memory-tight browsers — these manifest as "unreachable"
-        // RuntimeErrors and are the most common cause of the engine
-        // looking flaky. Threads=1 is redundant for single-threaded
-        // builds but explicit is safer.
-        w.postMessage("setoption name Hash value 8");
-        w.postMessage("setoption name Threads value 1");
+        // initialization.
+        //
+        // For the MT build, give it real cores: cap at 4 so we don't
+        // saturate the user's CPU when they're also browsing, and
+        // double the hash since multiple threads share it. For
+        // single-threaded builds, keep Hash=8 (small, less chance of
+        // WASM allocation traps) and Threads=1 (redundant but
+        // explicit).
+        const isMt = settings.engineId === "lite-multi";
+        const hw =
+          typeof navigator !== "undefined"
+            ? navigator.hardwareConcurrency || 2
+            : 2;
+        const threads = isMt ? Math.max(1, Math.min(4, hw - 1)) : 1;
+        const hash = isMt ? 16 : 8;
+        w.postMessage(`setoption name Hash value ${hash}`);
+        w.postMessage(`setoption name Threads value ${threads}`);
         w.postMessage(`setoption name MultiPV value ${settings.multiPv}`);
         w.postMessage("ucinewgame");
         w.postMessage("isready");
@@ -389,7 +432,11 @@ export function EnginePanel({
           className="font-mono text-[10px] uppercase tracking-[.18em] text-brass shrink-0"
           title={ENGINES[settings.engineId].label}
         >
-          {settings.engineId === "asm" ? "SF 18 ASM" : "SF 18 NNUE"}
+          {settings.engineId === "asm"
+            ? "SF 18 ASM"
+            : settings.engineId === "lite-multi"
+            ? "SF 18 NNUE · MT"
+            : "SF 18 NNUE"}
         </span>
         <span className="text-[11px] font-mono text-parchment-300/70 truncate flex-1 min-w-0">
           <span className="text-parchment-100">{depthSeen || "—"}</span>

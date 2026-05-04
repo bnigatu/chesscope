@@ -14,6 +14,30 @@ const nextConfig: NextConfig = {
     // Tighter bundle for Cloudflare Workers (3 MiB free / 10 MiB paid limit).
     optimizePackageImports: ["drizzle-orm", "@libsql/client"],
   },
+  // Cross-origin isolation for SharedArrayBuffer, which the
+  // multi-threaded Stockfish build requires. COOP=same-origin makes
+  // the page its own browsing-context group; COEP=credentialless is
+  // the gentler isolation mode (vs require-corp): cross-origin GETs
+  // without credentials are allowed without CORP headers, so we
+  // don't need to coordinate with third-party assets. Chrome 96+ /
+  // Firefox 119+ / Safari 17+ all support it.
+  //
+  // Browsers that don't support SAB or this isolation mode get the
+  // single-threaded engine via runtime fallback (see engine-panel).
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          {
+            key: "Cross-Origin-Embedder-Policy",
+            value: "credentialless",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

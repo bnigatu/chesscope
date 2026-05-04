@@ -3,10 +3,17 @@
 // into public/stockfish/ so Next.js serves them as static assets at
 // /stockfish/*. The browser loads them via `new Worker('/stockfish/...')`.
 //
-// We ship single-threaded variants only so we don't need
-// COOP/COEP headers (those break cross-origin assets and aren't worth
-// the integration cost). The lite-single is ~7MB, full NNUE strength,
-// recommended by the package author for browser apps.
+// We ship three variants:
+//   - lite-multi  (default): ~7MB WASM, multi-threaded NNUE. Needs
+//                  SharedArrayBuffer, which needs cross-origin
+//                  isolation (COOP same-origin + COEP credentialless,
+//                  set in next.config.ts). Gives ~3-6× nps over single
+//                  on multi-core machines.
+//   - lite-single (fallback): same NNUE, single-threaded. Used when
+//                  SAB isn't available (older browsers, isolation
+//                  failure).
+//   - asm         (escape hatch): pure JS, no WASM at all. Slow but
+//                  works in environments where WASM is blocked.
 //
 // Re-runs automatically on `npm run dev` and `npm run build` via pre-script
 // hooks. public/stockfish/ is gitignored — this script repopulates it.
@@ -28,6 +35,8 @@ const sourceDir = join(repoRoot, "node_modules", "stockfish", "bin");
 const targetDir = join(repoRoot, "public", "stockfish");
 
 const FILES_TO_COPY = [
+  "stockfish-18-lite.js",
+  "stockfish-18-lite.wasm",
   "stockfish-18-lite-single.js",
   "stockfish-18-lite-single.wasm",
   "stockfish-18-asm.js",

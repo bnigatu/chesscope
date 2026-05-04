@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SearchForm } from "@/components/search-form";
+
+// Tell crawlers to drop any 404 that lingers in their index. Critical
+// for the previous owner's URL overhang — if Google retries an old
+// `/blog/...` URL we removed and lands on this 404 rather than our
+// 410-Gone middleware match, the noindex still tells it to evict.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function NotFound() {
   return (

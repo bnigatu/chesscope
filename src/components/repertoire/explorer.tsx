@@ -44,6 +44,18 @@ import { cx } from "@/lib/utils";
 
 const PGN_SESSION_KEY = "chesscope.pgnSession";
 const TREE_SESSION_KEY = "chesscope.treeSession";
+// v3: schema bump again to invalidate v2 sizes that didn't reserve
+// room for the footer (donate link was below the fold).
+const BOARD_SIZE_KEY = "chesscope.boardSize.v3";
+
+// Chess.com-style discrete board size knob. Default is set above the
+// pre-resize hard cap (640) so the board lands at least as big as it
+// was before the knob existed; max is generous enough to actually
+// fill a wide monitor's column-span when the user wants that.
+const BOARD_SIZE_MIN = 360;
+const BOARD_SIZE_MAX = 1200;
+const BOARD_SIZE_DEFAULT = 720;
+const BOARD_SIZE_STEP = 40;
 
 const STARTING_FEN =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -127,6 +139,47 @@ export function RepertoireExplorer({
   const abortRef = useRef<AbortController | null>(null);
   const pgnFilenameRef = useRef<string | null>(null);
   const pgnPlayerRef = useRef<string | null>(null);
+
+  // Chess.com-style resizable board. Hydrates from localStorage on
+  // mount so the user's choice persists across sessions; SSR initial
+  // value is the default to avoid hydration mismatch.
+  //
+  // First-visit / no-saved-pref: auto-fit to viewport height instead
+  // of using the small static default — most users want a big board
+  // on a desktop monitor, and the rail is there for fine adjustment.
+  const [boardSize, setBoardSize] = useState<number>(BOARD_SIZE_DEFAULT);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(BOARD_SIZE_KEY);
+      if (raw) {
+        const n = parseInt(raw, 10);
+        if (Number.isFinite(n) && n >= BOARD_SIZE_MIN && n <= BOARD_SIZE_MAX) {
+          setBoardSize(n);
+          return;
+        }
+      }
+      // ~280 px covers: global header (64) + page padding (32) +
+      // ControlsBar above the board (48) + the compact footer
+      // (~110) + safety (~25). Goal is to land the bottom of the
+      // board just above the footer so the donate link is always
+      // in view without scrolling.
+      const target = window.innerHeight - 280;
+      setBoardSize(
+        Math.max(BOARD_SIZE_MIN, Math.min(BOARD_SIZE_MAX, target))
+      );
+    } catch {
+      /* localStorage disabled — fall back to static default */
+    }
+  }, []);
+  const updateBoardSize = useCallback((n: number) => {
+    const clamped = Math.max(BOARD_SIZE_MIN, Math.min(BOARD_SIZE_MAX, n));
+    setBoardSize(clamped);
+    try {
+      window.localStorage.setItem(BOARD_SIZE_KEY, String(clamped));
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   // Snapshot the user/filters so the effect deps are stable. Stringify
   // the filters once for cheap deep-equality.
@@ -337,12 +390,20 @@ export function RepertoireExplorer({
     [currentFenKey, treeTick]
   );
 
-  // Auto-shape arrows for the top 4 played moves at this position. Brand
-  // brass with opacity scaling by frequency rank; the hovered move (if
-  // any) lights up to brass-light. Mirrors openingtree's behaviour where
-  // the board itself becomes a heatmap of "where this player goes."
+  // Auto-shape arrows for the top 4 played moves at this position.
+  // Two-tier color scheme inspired by openingtree:
+  //
+  //   GREEN   — the dominant move (always the top), plus any
+  //             co-dominant move whose count is ≥ 50% of the top's
+  //             count (handles the "e3 + e4 both ~equally main"
+  //             case). Reads as "this is what this player does."
+  //   AMBER   — every other arrow, with rank-falling opacity so the
+  //             heatmap of alternates stays subtle.
+  //
+  // Hovered always pops to full saturation in its own colour.
   const boardArrows = useMemo<BoardArrow[]>(() => {
     if (playedMoves.length === 0) return [];
+    const topCount = playedMoves[0]?.count ?? 0;
     const result: BoardArrow[] = [];
     for (let i = 0; i < Math.min(4, playedMoves.length); i++) {
       const m = playedMoves[i];
@@ -355,15 +416,27 @@ export function RepertoireExplorer({
       }
       if (!parsed) continue;
       const isHovered = hoveredMoveSan === m.san;
-      // Frequency-rank opacity: top move 0.85, second 0.65, third 0.45,
-      // fourth 0.30. Hovered always full strength in brand-light.
-      const opacity = [0.85, 0.65, 0.45, 0.3][i];
+      const isMajor =
+        i === 0 || (topCount > 0 && m.count / topCount >= 0.5);
+      let color: string;
+      if (isMajor) {
+        // Chess.com-ish forest green. Solid for the dominant move,
+        // slightly softer for a co-dominant second.
+        color = isHovered
+          ? "rgba(93, 153, 72, 1)"
+          : i === 0
+          ? "rgba(93, 153, 72, 0.95)"
+          : "rgba(93, 153, 72, 0.8)";
+      } else {
+        const opacity = [0.65, 0.5, 0.4, 0.3][i] ?? 0.3;
+        color = isHovered
+          ? "rgba(255, 170, 0, 1)"
+          : `rgba(255, 170, 0, ${opacity})`;
+      }
       result.push({
         startSquare: parsed.from,
         endSquare: parsed.to,
-        color: isHovered
-          ? "rgba(212, 174, 94, 0.95)" // brass-light
-          : `rgba(184, 146, 74, ${opacity})`, // brass with rank-scaled opacity
+        color,
       });
     }
     return result;
@@ -612,32 +685,65 @@ export function RepertoireExplorer({
         onSave={saveTree}
       />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-6">
-        {/* MIDDLE column · Controls + Board */}
-        <div className="lg:col-span-6 lg:order-2 space-y-3">
-          <ControlsBar
-            onFlip={flip}
-            onUndo={undo}
-            onRedo={redo}
-            onJumpStart={jumpStart}
-            onJumpEnd={jumpEnd}
-            onSwitchColor={switchColor}
-            onCopyFen={copyFen}
-            onCopyShare={copyShare}
-            onClear={clear}
-            onShortcuts={() => setCheatsheetOpen(true)}
-          />
-          <div className="flex gap-2 max-w-[680px] mx-auto">
-            <EvalBar
-              cp={evalInfo.cp}
-              mate={evalInfo.mate}
-              orientation={orientation}
-            />
-            <div className="flex-1 min-w-0">
-              <Board
-                fen={fen}
+        {/* MIDDLE column · Controls + Board + size slider. */}
+        <div className="lg:col-span-6 lg:order-2 min-w-0">
+          {/* Wrapper width = eval bar (32) + gap (8) + boardSize +
+              gap (8) + rail (10). Centered with mx-auto so the
+              entire group rides the slider together: when the user
+              drags the rail the toolbar above the board scales too.
+              On mobile we let the board flex normally. */}
+          <div
+            className="mx-auto space-y-3"
+            style={{
+              maxWidth: `${boardSize + 32 + 10 + 8 + 8}px`,
+            }}
+          >
+            {/* Toolbar row: same flex layout as the board row, with
+                a transparent eval-bar-width spacer on the left and a
+                rail-width spacer on the right, so the toolbar's
+                visible part lines up exactly with the board. */}
+            <div className="flex gap-2 items-stretch">
+              <div className="hidden lg:block w-8 shrink-0" aria-hidden />
+              <div className="flex-1 min-w-0">
+                <ControlsBar
+                  onFlip={flip}
+                  onUndo={undo}
+                  onRedo={redo}
+                  onJumpStart={jumpStart}
+                  onJumpEnd={jumpEnd}
+                  onSwitchColor={switchColor}
+                  onCopyFen={copyFen}
+                  onCopyShare={copyShare}
+                  onClear={clear}
+                  onShortcuts={() => setCheatsheetOpen(true)}
+                />
+              </div>
+              <div className="hidden lg:block w-2.5 shrink-0" aria-hidden />
+            </div>
+            <div className="flex gap-2 items-stretch">
+              <EvalBar
+                cp={evalInfo.cp}
+                mate={evalInfo.mate}
                 orientation={orientation}
-                onPieceDrop={onPieceDrop}
-                arrows={boardArrows}
+              />
+              <div className="flex-1 min-w-0">
+                <Board
+                  fen={fen}
+                  orientation={orientation}
+                  onPieceDrop={onPieceDrop}
+                  arrows={boardArrows}
+                  size={boardSize}
+                />
+              </div>
+              {/* Vertical strip on the right edge of the board with a
+                  discreet drag-to-resize handle. Mirrors chess.com's
+                  #board-layout-controls > .resize affordance. Hidden
+                  on mobile where the board already fills the viewport. */}
+              <BoardResizeRail
+                size={boardSize}
+                min={BOARD_SIZE_MIN}
+                max={BOARD_SIZE_MAX}
+                onChange={updateBoardSize}
               />
             </div>
           </div>
@@ -645,8 +751,10 @@ export function RepertoireExplorer({
 
         {/* RIGHT column · Engine + Continuation + Stats (desktop only).
             On mobile, the Stats card here is hidden and the duplicate
-            below (after Book) takes over so Stats lands last. */}
-        <aside className="lg:col-span-3 lg:order-3 space-y-6">
+            below (after Book) takes over so Stats lands last.
+            sticky+max-h+overflow-y-auto so a tall board doesn't drag
+            the page when this rail is shorter than the board. */}
+        <aside className="lg:col-span-3 lg:order-3 space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1">
           <EnginePanel
             fen={fen}
             onContinuationClick={playLine}
@@ -667,7 +775,7 @@ export function RepertoireExplorer({
             Stats duplicate below shows up after Book so it's the last
             panel in the stacked flow; it's hidden on desktop where the
             right-column copy is the visible one. */}
-        <aside className="lg:col-span-3 lg:order-1 space-y-6">
+        <aside className="lg:col-span-3 lg:order-1 space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1">
           <MovesPanel
             moves={playedMoves}
             onPick={(san) => applyOne(san)}
@@ -844,5 +952,86 @@ function ColorBadge({ color }: { color: "white" | "black" }) {
       <span aria-hidden>{color === "white" ? "♔" : "♚"}</span>
       {color}
     </span>
+  );
+}
+
+/**
+ * Chess.com-style vertical rail on the right edge of the board with a
+ * drag-to-resize handle anchored at the bottom. The rail is narrow
+ * (10px) and largely transparent until hovered, so it doesn't compete
+ * visually with the board itself — discoverable, not distracting.
+ *
+ * The drag uses pointer events with element capture so the gesture
+ * stays attached to the handle even if the cursor leaves the rail.
+ * Horizontal delta drives the size: dragging right = bigger board.
+ */
+function BoardResizeRail({
+  size,
+  min,
+  max,
+  onChange,
+}: {
+  size: number;
+  min: number;
+  max: number;
+  onChange: (n: number) => void;
+}) {
+  const startRef = useRef<{ x: number; size: number } | null>(null);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    startRef.current = { x: e.clientX, size };
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!startRef.current) return;
+    const dx = e.clientX - startRef.current.x;
+    onChange(
+      Math.max(min, Math.min(max, startRef.current.size + dx))
+    );
+  };
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    startRef.current = null;
+  };
+
+  return (
+    <div className="hidden lg:flex flex-col items-center justify-end shrink-0 w-2.5 group">
+      <div
+        role="slider"
+        aria-label="Resize board"
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={size}
+        tabIndex={0}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+            e.preventDefault();
+            onChange(Math.min(max, size + BOARD_SIZE_STEP));
+          } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+            e.preventDefault();
+            onChange(Math.max(min, size - BOARD_SIZE_STEP));
+          }
+        }}
+        title="Drag to resize board"
+        className={cx(
+          "h-10 w-2.5 rounded-sm cursor-ew-resize touch-none select-none",
+          "bg-parchment-50/10 hover:bg-brass/50 transition-colors",
+          "flex flex-col items-center justify-center gap-[2px]",
+          "outline-none focus-visible:bg-brass/60"
+        )}
+      >
+        {/* Three faint dots — the universal "drag handle" affordance. */}
+        <span className="w-0.5 h-0.5 rounded-full bg-parchment-50/60" />
+        <span className="w-0.5 h-0.5 rounded-full bg-parchment-50/60" />
+        <span className="w-0.5 h-0.5 rounded-full bg-parchment-50/60" />
+      </div>
+    </div>
   );
 }

@@ -3,22 +3,23 @@ import { Wordmark } from "./knight-mark";
 
 export function Footer() {
   return (
-    <footer className="mt-32 border-t border-parchment-50/8">
-      <div className="container-wide py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          <div className="space-y-4">
+    <footer className="mt-8 border-t border-parchment-50/8">
+      <div className="container-wide py-5">
+        {/* 4 columns so Donate gets its own slot — keeps the footer
+            short enough to stay visible below the explorer board. */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="space-y-2">
             <Wordmark className="text-base" />
-            <p className="text-sm text-parchment-300/80 leading-relaxed max-w-xs">
-              Open chess data, indexed for the rest of us. Built because
-              search shouldn&rsquo;t be a luxury.
+            <p className="text-xs text-parchment-300/80 leading-snug max-w-xs">
+              Open chess data, indexed for the rest of us.
             </p>
           </div>
 
-          <div className="space-y-3">
-            <h4 className="font-display text-sm text-brass uppercase tracking-[.2em]">
+          <div className="space-y-2">
+            <h4 className="font-display text-xs text-brass uppercase tracking-[.2em]">
               Sources
             </h4>
-            <ul className="space-y-2 text-sm text-parchment-100/80">
+            <ul className="space-y-1 text-xs text-parchment-100/80">
               <li>
                 <a
                   href="https://database.lichess.org/#broadcasts"
@@ -33,21 +34,32 @@ export function Footer() {
             </ul>
           </div>
 
-          <div className="space-y-3">
-            <h4 className="font-display text-sm text-brass uppercase tracking-[.2em]">
+          <div className="space-y-2">
+            <h4 className="font-display text-xs text-brass uppercase tracking-[.2em]">
               Project
             </h4>
-            <ul className="space-y-2 text-sm text-parchment-100/80">
+            <ul className="space-y-1 text-xs text-parchment-100/80">
               <li>
                 <Link href="/about" className="link-editorial">
                   About &amp; methodology
                 </Link>
               </li>
               <li>
-                <a href="mailto:support@chesscope.com" className="link-editorial">
+                <a
+                  href="mailto:support@chesscope.com"
+                  className="link-editorial"
+                >
                   Contact
                 </a>
               </li>
+            </ul>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="font-display text-xs text-brass uppercase tracking-[.2em]">
+              Support
+            </h4>
+            <ul className="space-y-1 text-xs text-parchment-100/80">
               <li>
                 <a
                   href="https://buymeacoffee.com/chesscope"
@@ -58,16 +70,16 @@ export function Footer() {
                   Donate
                 </a>{" "}
                 <span className="text-parchment-300/60">
-                  Help cover hosting & ingest
+                  Help cover hosting &amp; ingest
                 </span>
               </li>
             </ul>
           </div>
         </div>
 
-        <hr className="rule my-10" />
+        <hr className="rule my-3" />
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-xs text-parchment-300/60">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-[11px] text-parchment-300/60">
           <p className="font-mono">
             © {new Date().getFullYear()} Chesscope. Game data is the property
             of its respective sources, redistributed under their licenses.

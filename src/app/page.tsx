@@ -42,7 +42,19 @@ export default async function HomePage({
     : [];
 
   return (
-    <div className="container-wide py-10 sm:py-14">
+    <div
+      className={
+        // Built-explorer view: wide but not edge-to-edge. chess.com
+        // uses real gutters on either side so the content has room
+        // to breathe — we mirror that with max-w-[1700px] and
+        // generous horizontal padding. The pre-built form view stays
+        // in the bounded container — it's a settings page, doesn't
+        // benefit from being huge.
+        isBuilt
+          ? "w-full max-w-[1920px] mx-auto px-4 sm:px-6 py-3 sm:py-4"
+          : "container-wide py-10 sm:py-14"
+      }
+    >
       <header
         className={
           isBuilt

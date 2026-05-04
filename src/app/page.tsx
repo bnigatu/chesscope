@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   // appended a second time.
   title: {
     absolute:
-      "Chesscope — opening repertoire from Lichess and Chess.com in one tree",
+      "Chesscope, opening repertoire from Lichess and Chess.com in one tree",
   },
   description:
     "Build any player's full opening repertoire from Lichess and Chess.com in one interactive tree. Stockfish engine, transposition-aware, save positions. Free, no login.",

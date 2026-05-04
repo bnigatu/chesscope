@@ -1,4 +1,4 @@
-# Chesscope — Repertoire Explorer
+# Chesscope, Repertoire Explorer
 
 > Design doc for the second major feature on chesscope.com. Read after
 > `memory.md`. This is a re-architecture of openingtree.com's core
@@ -25,6 +25,7 @@ time, which was wrong: most players are on both platforms with different
 usernames, and a real repertoire spans both. Chesscope unifies them.
 
 Use cases:
+
 - **Pre-game scouting** — opponent's openings across both sites in one view.
 - **Self-review** — your own repertoire, gaps, problem variations.
 - **Coaching prep** — student's full game history, not just one platform.
@@ -92,8 +93,8 @@ Schema addition (`src/lib/schema.ts`):
 
 ```ts
 export const repertoireHandles = sqliteTable("repertoire_handles", {
-  handle: text("handle").primaryKey(),       // 7-char base62
-  config: text("config").notNull(),          // JSON blob
+  handle: text("handle").primaryKey(), // 7-char base62
+  config: text("config").notNull(), // JSON blob
   hits: integer("hits").notNull().default(0),
   createdAt: integer("created_at").notNull(),
   lastSeenAt: integer("last_seen_at").notNull(),
@@ -171,12 +172,12 @@ the feature page.
 **Use [`react-chessboard`](https://github.com/Clariity/react-chessboard) v4+.**
 Why this and not the alternatives:
 
-| Library | Pros | Cons | Verdict |
-| --- | --- | --- | --- |
-| **react-chessboard** | Active (v4 in 2024), React 18+, custom colors trivial, good drag/drop | Larger than chessground | ✅ Use this |
-| react-chessground | What openingtree used | Dead, React 16 era, awkward to theme | ❌ |
-| chessground (lichess) | Best perf, used by Lichess | Not React-native; you wrap it yourself | Optional fallback |
-| @react-chess/chessboard | Minimal | Sparse maintenance | ❌ |
+| Library                 | Pros                                                                  | Cons                                   | Verdict           |
+| ----------------------- | --------------------------------------------------------------------- | -------------------------------------- | ----------------- |
+| **react-chessboard**    | Active (v4 in 2024), React 18+, custom colors trivial, good drag/drop | Larger than chessground                | ✅ Use this       |
+| react-chessground       | What openingtree used                                                 | Dead, React 16 era, awkward to theme   | ❌                |
+| chessground (lichess)   | Best perf, used by Lichess                                            | Not React-native; you wrap it yourself | Optional fallback |
+| @react-chess/chessboard | Minimal                                                               | Sparse maintenance                     | ❌                |
 
 Pair with **`chess.js` 1.x** (current API; the `0.12` in the original is
 pre-rewrite and has a different surface). For the FEN parsing on hot paths
@@ -198,17 +199,17 @@ board.** Each button has a keyboard shortcut shown in its tooltip on hover.
 
 Buttons, left to right:
 
-| Icon | Action | Shortcut | Notes |
-| --- | --- | --- | --- |
-| ⟲ | Flip board | `f` | Swap orientation |
-| ↶ | Undo move | `←` | Pop one move from the position |
-| ↷ | Redo move | `→` | Step forward in history |
-| ⇤ | Jump to start | `↑` | Reset to starting position |
-| ⇥ | Jump to end | `↓` | Last move in current line |
-| ⇄ | Switch color | `c` | Show repertoire from other color |
-| 🗒 | Copy FEN | `shift+f` | Clipboard write |
-| 🔗 | Copy share link | `shift+l` | Generates a handle if needed |
-| ✕ | Clear games | `⌘⇧⌫` | With "are you sure?" toast |
+| Icon | Action          | Shortcut  | Notes                            |
+| ---- | --------------- | --------- | -------------------------------- |
+| ⟲    | Flip board      | `f`       | Swap orientation                 |
+| ↶    | Undo move       | `←`       | Pop one move from the position   |
+| ↷    | Redo move       | `→`       | Step forward in history          |
+| ⇤    | Jump to start   | `↑`       | Reset to starting position       |
+| ⇥    | Jump to end     | `↓`       | Last move in current line        |
+| ⇄    | Switch color    | `c`       | Show repertoire from other color |
+| 🗒   | Copy FEN        | `shift+f` | Clipboard write                  |
+| 🔗   | Copy share link | `shift+l` | Generates a handle if needed     |
+| ✕    | Clear games     | `⌘⇧⌫`     | With "are you sure?" toast       |
 
 Render as a single `<ControlsBar>` component; don't split into two rows on
 mobile, but allow horizontal scroll if cramped (the original wrapped, which
@@ -220,7 +221,7 @@ Implemented as a small registry in `src/lib/repertoire/shortcuts.ts`:
 
 ```ts
 type Binding = {
-  keys: string;            // "f", "shift+f", "ctrl+shift+backspace"
+  keys: string; // "f", "shift+f", "ctrl+shift+backspace"
   description: string;
   action: () => void;
 };
@@ -284,7 +285,7 @@ export async function GET(req: Request) {
   if (!upstreamRes.ok) {
     return NextResponse.json(
       { error: `Lichess returned ${upstreamRes.status}` },
-      { status: upstreamRes.status === 404 ? 404 : 502 }
+      { status: upstreamRes.status === 404 ? 404 : 502 },
     );
   }
 
@@ -327,7 +328,13 @@ Response shape — normalized so the frontend doesn't care which book:
 ```json
 {
   "moves": [
-    { "san": "e5", "white": 12340, "draws": 5210, "black": 9870, "averageRating": 1832 }
+    {
+      "san": "e5",
+      "white": 12340,
+      "draws": 5210,
+      "black": 9870,
+      "averageRating": 1832
+    }
   ],
   "topGames": [
     { "id": "abc123", "white": "...", "black": "...", "year": 2024 }
@@ -343,7 +350,8 @@ Response shape — normalized so the frontend doesn't care which book:
 export async function* ingest(config: IngestConfig): AsyncIterable<Game> {
   const tasks: AsyncIterable<Game>[] = [];
   if (config.lichess) tasks.push(ingestLichess(config.lichess, config.filters));
-  if (config.chesscom) tasks.push(ingestChesscom(config.chesscom, config.filters));
+  if (config.chesscom)
+    tasks.push(ingestChesscom(config.chesscom, config.filters));
   // Round-robin merge — don't wait for one source to finish before yielding from the other.
   yield* merge(tasks);
 }
@@ -373,25 +381,38 @@ export type GameRef = {
   id: string;
   source: "lichess" | "chesscom";
   url: string;
-  white: string; black: string;
+  white: string;
+  black: string;
   result: "1-0" | "0-1" | "1/2-1/2";
   date: string;
-  whiteElo?: number; blackElo?: number;
+  whiteElo?: number;
+  blackElo?: number;
   timeControl?: string;
 };
 
 export class OpeningTree {
   root: Move = makeRoot();
 
-  addGame(game: ParsedGame, perspective: "white" | "black"): void { /* ... */ }
-  walk(path: string[]): Move | null { /* ... */ }
-  topMovesAt(path: string[], n = 10): Move[] { /* ... */ }
-  toJSON(): TreeJSON { /* ... */ }
-  static fromJSON(j: TreeJSON): OpeningTree { /* ... */ }
+  addGame(game: ParsedGame, perspective: "white" | "black"): void {
+    /* ... */
+  }
+  walk(path: string[]): Move | null {
+    /* ... */
+  }
+  topMovesAt(path: string[], n = 10): Move[] {
+    /* ... */
+  }
+  toJSON(): TreeJSON {
+    /* ... */
+  }
+  static fromJSON(j: TreeJSON): OpeningTree {
+    /* ... */
+  }
 }
 ```
 
 Memory matters — 100K games builds a tree with ~200K nodes. Caps:
+
 - Each node retains at most 50 sample games (newest preferred).
 - Nodes with `count < min_games` filter (default 2) are pruned at render time.
 
@@ -409,7 +430,7 @@ Memory matters — 100K games builds a tree with ~200K nodes. Caps:
 ### Medium-priority
 
 7. **`worker-plugin`** → native `new Worker(new URL(...), { type: "module" })`.
-8. **OAuth login dedicated Worker** — adopt the pattern *if* we add OAuth, not in V1.
+8. **OAuth login dedicated Worker** — adopt the pattern _if_ we add OAuth, not in V1.
 9. **`react-faq-component`, `react-step-progress-bar`, `react-select-search`, `material-ui-dropzone`** — replace with native/custom.
 10. **Selenium tests** — replace with Playwright if needed.
 11. **Custom webpack config (forked CRA)** — Next.js handles all this.
@@ -432,20 +453,20 @@ Memory matters — 100K games builds a tree with ~200K nodes. Caps:
 
 ### Rate limiting
 
-| Endpoint | Budget |
-| --- | --- |
-| `/api/lichess/games` | 10 req/min/IP, 100 req/hour/IP |
-| `/api/chesscom/games` | 20 req/min/IP, 500 req/hour/IP |
-| `/api/lichess/explorer` | 60 req/min/IP |
-| `/api/repertoire/share` | 5 POST/hour/IP |
+| Endpoint                | Budget                         |
+| ----------------------- | ------------------------------ |
+| `/api/lichess/games`    | 10 req/min/IP, 100 req/hour/IP |
+| `/api/chesscom/games`   | 20 req/min/IP, 500 req/hour/IP |
+| `/api/lichess/explorer` | 60 req/min/IP                  |
+| `/api/repertoire/share` | 5 POST/hour/IP                 |
 
 ### Caching
 
-| Layer | What | TTL |
-| --- | --- | --- |
-| Cloudflare edge | `/api/lichess/explorer` responses by FEN | 24h, swr 7d |
-| R2 | Raw PGN streams by (source, user, month) | 1h, swr 24h |
-| Browser | IndexedDB cache of last fetched tree per handle | until manual clear |
+| Layer           | What                                            | TTL                |
+| --------------- | ----------------------------------------------- | ------------------ |
+| Cloudflare edge | `/api/lichess/explorer` responses by FEN        | 24h, swr 7d        |
+| R2              | Raw PGN streams by (source, user, month)        | 1h, swr 24h        |
+| Browser         | IndexedDB cache of last fetched tree per handle | until manual clear |
 
 ### Lichess User-Agent
 
@@ -463,7 +484,7 @@ chesscope.com/1.0 (+https://chesscope.com; contact: support@chesscope.com)
 6. **Keyboard shortcuts.** Registry + `?` cheatsheet.
 7. **Handles + sharing.** `/api/repertoire/share`, `repertoire_handles` table.
 8. **Tree caching.** IndexedDB + R2.
-8.5 **Stockfish.wasm engine panel.** (See §13.6.)
+   8.5 **Stockfish.wasm engine panel.** (See §13.6.)
 9. **Polish.** Auto-shape arrows, ECO panel, frequent opponents, PGN export.
 
 ## 13. Open questions
@@ -472,14 +493,14 @@ chesscope.com/1.0 (+https://chesscope.com; contact: support@chesscope.com)
 
 ## 13.5 — Confirmed scope decisions
 
-| Question | Decision |
-| --- | --- |
-| Require login (Lichess OAuth) | **No** |
-| Keep PGN file upload | **Yes (V1)** |
-| Save/load tree to/from local file | **Yes (V1)** |
-| Variant support | **No** |
-| Engine integration (Stockfish.wasm) | **Yes** |
-| Public directory of popular trees | **No** |
+| Question                            | Decision     |
+| ----------------------------------- | ------------ |
+| Require login (Lichess OAuth)       | **No**       |
+| Keep PGN file upload                | **Yes (V1)** |
+| Save/load tree to/from local file   | **Yes (V1)** |
+| Variant support                     | **No**       |
+| Engine integration (Stockfish.wasm) | **Yes**      |
+| Public directory of popular trees   | **No**       |
 
 ### Sources deferred to V2/V3 (do NOT implement in V1)
 

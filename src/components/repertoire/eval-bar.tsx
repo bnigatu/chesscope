@@ -35,8 +35,7 @@ export function EvalBar({
     evalText = `M${Math.abs(mate)}`;
   } else if (cp != null) {
     whitePct = 50 + 50 * Math.tanh(cp / 440);
-    const v = cp / 100;
-    evalText = (v >= 0 ? "+" : "") + v.toFixed(1);
+    evalText = (Math.abs(cp) / 100).toFixed(1);
   } else {
     whitePct = 50;
     evalText = "0.0";
@@ -50,13 +49,17 @@ export function EvalBar({
       className={cx(
         "relative w-8 self-stretch shrink-0",
         "rounded-sm overflow-hidden border border-parchment-50/15",
-        "bg-ink-900"
+        "bg-ink-900",
       )}
     >
       {/* White fill — slides from one end of the bar based on winPct.
-          Smooth transition so the bar animates as the engine refines. */}
+          Long transition + ease-in-out so rapid engine updates from
+          low-depth refinements don't snap the bar around — instead
+          the bar glides through them on its way to the settled
+          value. The eased curve also feels less mechanical than
+          ease-out. */}
       <div
-        className="absolute left-0 right-0 bg-parchment-50 transition-all duration-300 ease-out"
+        className="absolute left-0 right-0 bg-parchment-50 transition-all duration-700 ease-in-out"
         style={
           whiteAtBottom
             ? { bottom: 0, height: `${whitePct}%` }
@@ -75,8 +78,8 @@ export function EvalBar({
               ? "bottom-0.5 text-ink-900"
               : "top-0.5 text-ink-900"
             : whiteAtBottom
-            ? "top-0.5 text-parchment-50"
-            : "bottom-0.5 text-parchment-50"
+              ? "top-0.5 text-parchment-50"
+              : "bottom-0.5 text-parchment-50",
         )}
       >
         {evalText}

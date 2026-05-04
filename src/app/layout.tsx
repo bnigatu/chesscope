@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://chesscope.com"),
   title: {
     default:
-      "Chesscope — opening repertoire from Lichess and Chess.com in one tree",
+      "Chesscope, opening repertoire from Lichess and Chess.com in one tree",
     template: "%s · Chesscope",
   },
   description:
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title:
-      "Chesscope — opening repertoire from Lichess and Chess.com in one tree",
+      "Chesscope, opening repertoire from Lichess and Chess.com in one tree",
     description:
       "Build any player's full opening repertoire from Lichess and Chess.com in one tree, with Stockfish engine and transposition awareness. Plus broadcast game search.",
     type: "website",
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title:
-      "Chesscope — opening repertoire from Lichess and Chess.com in one tree",
+      "Chesscope, opening repertoire from Lichess and Chess.com in one tree",
     description:
       "Build any player's full opening repertoire from Lichess and Chess.com in one tree, with Stockfish engine and transposition awareness. Plus broadcast game search.",
     images: ["/android-chrome-512x512.png"],

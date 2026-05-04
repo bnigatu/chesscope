@@ -12,6 +12,21 @@ export type BoardArrow = {
   color: string;
 };
 
+/**
+ * Named board palettes mirroring chess.com's most popular options.
+ * The keys are the values stored in localStorage; labels are what
+ * the settings modal shows. Adding a theme = add an entry here.
+ */
+export const BOARD_THEMES = {
+  blue: { label: "Blue", dark: "#7b96b7", light: "#dee3e6" },
+  green: { label: "Green", dark: "#769656", light: "#eeeed2" },
+  brown: { label: "Brown", dark: "#b58863", light: "#f0d9b5" },
+  walnut: { label: "Walnut", dark: "#8b6f4e", light: "#e6cfa1" },
+  slate: { label: "Slate", dark: "#647082", light: "#cbd1d8" },
+} as const;
+
+export type BoardThemeId = keyof typeof BOARD_THEMES;
+
 type BoardProps = {
   fen?: string;
   orientation?: "white" | "black";
@@ -20,6 +35,8 @@ type BoardProps = {
   /** Pixel cap on the board's rendered width. The wrapper still uses
       w-full so it shrinks under the cap on narrow viewports. */
   size?: number;
+  /** Named palette key. Defaults to 'blue' (chess.com Blue). */
+  theme?: BoardThemeId;
 };
 
 function BoardImpl({
@@ -28,7 +45,9 @@ function BoardImpl({
   onPieceDrop,
   arrows,
   size = 640,
+  theme = "blue",
 }: BoardProps) {
+  const palette = BOARD_THEMES[theme] ?? BOARD_THEMES.blue;
   return (
     <div
       className="w-full mx-auto"
@@ -39,11 +58,8 @@ function BoardImpl({
           position: fen,
           boardOrientation: orientation,
           allowDragging: !!onPieceDrop,
-          // Chess.com Blue palette (matches the user's chess.com
-          // board theme): slate blue dark squares, pale-grey-blue
-          // light squares.
-          darkSquareStyle: { backgroundColor: "#7b96b7" },
-          lightSquareStyle: { backgroundColor: "#dee3e6" },
+          darkSquareStyle: { backgroundColor: palette.dark },
+          lightSquareStyle: { backgroundColor: palette.light },
           boardStyle: {
             borderRadius: "2px",
             boxShadow: "0 4px 24px rgba(0,0,0,0.45)",

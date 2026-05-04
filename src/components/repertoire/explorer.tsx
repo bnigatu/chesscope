@@ -2,11 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
-import { Board, type BoardArrow } from "./board";
+import { Board, type BoardArrow, type BoardThemeId } from "./board";
 import { ControlsBar } from "./controls-bar";
 import { EnginePanel } from "./engine-panel";
 import { EvalBar } from "./eval-bar";
 import { ShortcutCheatsheet } from "./shortcut-cheatsheet";
+import { SettingsModal } from "./settings-modal";
+import {
+  loadEngineSettings,
+  saveEngineSettings,
+  type EngineSettings,
+} from "@/lib/repertoire/engine-config";
 import { useShortcuts, type Shortcut } from "@/lib/repertoire/shortcuts";
 import {
   cacheKey,
@@ -47,6 +53,8 @@ const TREE_SESSION_KEY = "chesscope.treeSession";
 // v3: schema bump again to invalidate v2 sizes that didn't reserve
 // room for the footer (donate link was below the fold).
 const BOARD_SIZE_KEY = "chesscope.boardSize.v3";
+const BOARD_THEME_KEY = "chesscope.boardTheme";
+const BOARD_THEME_DEFAULT: BoardThemeId = "blue";
 
 // Chess.com-style discrete board size knob. Default is set above the
 // pre-resize hard cap (640) so the board lands at least as big as it
@@ -139,6 +147,42 @@ export function RepertoireExplorer({
   const abortRef = useRef<AbortController | null>(null);
   const pgnFilenameRef = useRef<string | null>(null);
   const pgnPlayerRef = useRef<string | null>(null);
+
+  // Engine settings — lifted out of EnginePanel so the SettingsModal
+  // can read/write the same source of truth. EnginePanel is now a
+  // controlled component for these.
+  const [engineSettings, setEngineSettings] =
+    useState<EngineSettings>(() => loadEngineSettings());
+  useEffect(() => {
+    saveEngineSettings(engineSettings);
+  }, [engineSettings]);
+
+  // Externally-bumpable counter so the modal can trigger an engine
+  // restart. EnginePanel watches this and re-inits the worker.
+  const [engineRestartSignal, setEngineRestartSignal] = useState(0);
+
+  // Settings modal open/close.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Board theme (palette key from BOARD_THEMES). Persisted.
+  const [boardTheme, setBoardTheme] =
+    useState<BoardThemeId>(BOARD_THEME_DEFAULT);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(BOARD_THEME_KEY);
+      if (raw) setBoardTheme(raw as BoardThemeId);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const updateBoardTheme = useCallback((t: BoardThemeId) => {
+    setBoardTheme(t);
+    try {
+      window.localStorage.setItem(BOARD_THEME_KEY, t);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   // Chess.com-style resizable board. Hydrates from localStorage on
   // mount so the user's choice persists across sessions; SSR initial
@@ -672,6 +716,24 @@ export function RepertoireExplorer({
         open={cheatsheetOpen}
         onClose={() => setCheatsheetOpen(false)}
       />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        engineSettings={engineSettings}
+        onEngineSettingsChange={setEngineSettings}
+        onRestartEngine={() => setEngineRestartSignal((n) => n + 1)}
+        boardTheme={boardTheme}
+        onBoardThemeChange={updateBoardTheme}
+        boardSize={boardSize}
+        onBoardSizeChange={updateBoardSize}
+        boardSizeMin={BOARD_SIZE_MIN}
+        boardSizeMax={BOARD_SIZE_MAX}
+        boardSizeStep={BOARD_SIZE_STEP}
+        onShowShortcuts={() => {
+          setSettingsOpen(false);
+          setCheatsheetOpen(true);
+        }}
+      />
       <Progress
         status={status}
         counts={counts}
@@ -733,6 +795,7 @@ export function RepertoireExplorer({
                   onPieceDrop={onPieceDrop}
                   arrows={boardArrows}
                   size={boardSize}
+                  theme={boardTheme}
                 />
               </div>
               {/* Vertical strip on the right edge of the board with a
@@ -759,6 +822,10 @@ export function RepertoireExplorer({
             fen={fen}
             onContinuationClick={playLine}
             onEval={setEvalInfo}
+            settings={engineSettings}
+            onSettingsChange={setEngineSettings}
+            onOpenSettings={() => setSettingsOpen(true)}
+            restartSignal={engineRestartSignal}
           />
           <MoveListPanel
             moves={moves}

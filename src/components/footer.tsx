@@ -81,11 +81,11 @@ export function Footer() {
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-[11px] text-parchment-300/60">
           <p className="font-mono">
-            © {new Date().getFullYear()} Chesscope. Game data is the property
-            of its respective sources, redistributed under their licenses.
+            © {new Date().getFullYear()} Chesscope. Game data is the property of
+            its respective sources, redistributed under their licenses.
           </p>
           <p className="italic">
-            Caïssa &mdash; protectress of the sixty-four squares.
+            Caïssa, protectress of the sixty-four squares.
           </p>
         </div>
       </div>

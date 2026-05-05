@@ -121,12 +121,25 @@ def _build_session() -> requests.Session:
 
 def list_monthly_dumps(session: requests.Session) -> list[tuple[str, str]]:
     """Scrape the index page for broadcast dumps. Returns a list of
-    (month, url) pairs sorted newest first."""
+    (month, url) pairs sorted OLDEST first.
+
+    Why oldest-first: GitHub Actions caps a job at 360 minutes, and a
+    single historical month can take 30+ minutes to download, parse,
+    and upsert. Processing newest-first meant the runner kept burning
+    its budget on the same freshest months every cron and never made
+    durable progress on the historical backlog. Oldest-first means
+    once a historical month gets a sync_state marker, it stays skipped
+    forever, so the backlog drains monotonically across runs.
+
+    The newest month is exempt from the SHA-skip guard upstream
+    (Lichess appends to it throughout the month), so it's still
+    reprocessed every run — just at the END of the queue, where a
+    timeout cuts off the always-reprocessed work instead of the
+    durable historical work."""
     resp = session.get(DUMP_INDEX_URL, timeout=30)
     resp.raise_for_status()
     months = sorted(
         {m.group(2) for m in _MONTH_PATTERN.finditer(resp.text)},
-        reverse=True,
     )
     return [(m, DUMP_URL_TEMPLATE.format(month=m)) for m in months]
 
@@ -941,8 +954,9 @@ def main() -> int:
     last_source = sources[-1][1] if sources else ""
     downloaded_paths: list[Path] = []
     # Track the most-recent (newest) month label so we know not to
-    # skip it on SHA match. `sources` is sorted newest-first.
-    newest_month_label = sources[0][0] if sources else None
+    # skip it on SHA match. `sources` is sorted oldest-first, so the
+    # newest month is at the end.
+    newest_month_label = sources[-1][0] if sources else None
 
     for month_label, source in sources:
         last_source = source

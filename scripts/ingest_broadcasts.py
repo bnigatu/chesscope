@@ -334,6 +334,7 @@ def verify_sha256(path: Path, expected: str) -> bool:
 @dataclasses.dataclass
 class GameRow:
     id: str
+    canonical_id: Optional[str]
     source: str
     white: str
     black: str
@@ -379,7 +380,12 @@ def header_int(game: chess.pgn.Game, key: str) -> Optional[int]:
 
 def game_id(game: chess.pgn.Game) -> str:
     """SHA1 of the identifying tuple. Stable across reruns; collision-free
-    in practice (same teams, date, round → it IS the same game)."""
+    in practice (same teams, date, round → it IS the same game).
+
+    This is the SOURCE-specific id. Two relays of the same game from
+    different sources (Lichess + TWIC) will produce different game_ids
+    because they format Event / Round / player names differently.
+    Cross-source dedup uses canonical_game_id() instead."""
     parts = [
         header(game, "Event") or "",
         header(game, "Round") or "",
@@ -390,6 +396,36 @@ def game_id(game: chess.pgn.Game) -> str:
         header(game, "UTCTime") or "",
     ]
     raw = "|".join(parts).encode("utf-8")
+    return hashlib.sha1(raw).hexdigest()
+
+
+# Below this many plies, canonical_id is None: the move list is too
+# short to be reliably unique across games (quick draws, aborted
+# games can share short prefixes). Tournament rules typically forbid
+# draw offers under move 30, so 30 plies = 15 full moves cleanly
+# excludes the collision-prone short-game cases without losing real
+# tournament games.
+CANONICAL_MIN_PLIES = 30
+
+
+def canonical_game_id(uci_moves: list[str], result: str) -> Optional[str]:
+    """SHA1 of the UCI move list + Result. Returns None for sub-30-ply
+    games. Used to dedupe the same physical game across multiple ingest
+    sources: Lichess broadcast and TWIC will both record the same Tata
+    Steel round with different headers but the same move sequence, so
+    they hash to the same canonical_id and queries can `COUNT(DISTINCT
+    canonical_id)` to get the true game count.
+
+    Why moves alone, not names+date: name normalization across sources
+    is fragile (transliterations, "Last, First" vs "First Last",
+    titles, abbreviations) and date formats vary (UTCDate vs Date,
+    UTC-rollover edge). The moves of a chess game ARE the game; UCI is
+    a single canonical format, python-chess produces it deterministically,
+    and two real games producing 30+ identical UCI moves is
+    vanishingly rare in practice."""
+    if len(uci_moves) < CANONICAL_MIN_PLIES:
+        return None
+    raw = ("|".join(uci_moves) + "|" + (result or "*")).encode("utf-8")
     return hashlib.sha1(raw).hexdigest()
 
 
@@ -419,8 +455,18 @@ def extract_pgn_body(game: chess.pgn.Game) -> str:
 
 
 def parse_game(game: chess.pgn.Game, *, store_pgn: bool) -> GameRow:
+    # Walk the mainline once: collect UCI strings to feed both the
+    # ply count and the canonical_id hash. The previous version did
+    # `sum(1 for _ in game.mainline_moves())` which already iterated;
+    # we just hold onto the strings this time. No measurable extra
+    # cost per game.
+    uci_moves: list[str] = []
+    for move in game.mainline_moves():
+        uci_moves.append(move.uci())
+    result = header(game, "Result") or "*"
     return GameRow(
         id=game_id(game),
+        canonical_id=canonical_game_id(uci_moves, result),
         source="lichess_broadcast",
         white=header(game, "White") or "?",
         black=header(game, "Black") or "?",
@@ -441,8 +487,8 @@ def parse_game(game: chess.pgn.Game, *, store_pgn: bool) -> GameRow:
         time_control=header(game, "TimeControl"),
         eco=header(game, "ECO"),
         opening=header(game, "Opening"),
-        result=header(game, "Result") or "*",
-        ply_count=sum(1 for _ in game.mainline_moves()) or None,
+        result=result,
+        ply_count=len(uci_moves) or None,
         broadcast_name=header(game, "BroadcastName"),
         broadcast_url=header(game, "BroadcastURL"),
         study_name=header(game, "StudyName"),
@@ -525,14 +571,15 @@ def iter_games_from_file(
 
 GAMES_INSERT = """
 INSERT INTO games (
-  id, source, white, black, white_fide_id, black_fide_id,
+  id, canonical_id, source, white, black, white_fide_id, black_fide_id,
   white_elo, black_elo, white_title, black_title,
   event, round, board, date, timestamp, time_control,
   eco, opening, result, ply_count,
   broadcast_name, broadcast_url, study_name, chapter_name,
   pgn, ingested_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
+  canonical_id = excluded.canonical_id,
   white_elo = excluded.white_elo,
   black_elo = excluded.black_elo,
   result    = excluded.result,
@@ -544,7 +591,8 @@ ON CONFLICT(id) DO UPDATE SET
 
 def row_to_params(r: GameRow) -> list:
     return [
-        r.id, r.source, r.white, r.black, r.white_fide_id, r.black_fide_id,
+        r.id, r.canonical_id, r.source, r.white, r.black,
+        r.white_fide_id, r.black_fide_id,
         r.white_elo, r.black_elo, r.white_title, r.black_title,
         r.event, r.round, r.board, r.date, r.timestamp, r.time_control,
         r.eco, r.opening, r.result, r.ply_count,

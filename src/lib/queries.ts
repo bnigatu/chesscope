@@ -213,7 +213,13 @@ export const getCoverageStats = unstable_cache(
       latest: string | null;
     }>(sql`
       SELECT
-        (SELECT COUNT(*) FROM games) AS games,
+        -- Distinct canonical games (deduped across sources) PLUS
+        -- short games that don't have a canonical_id (sub-30-ply
+        -- aborts/repetitions). For Lichess-only ingest the two
+        -- branches sum to about COUNT(*) since cross-source overlap
+        -- is zero, but the math is correct for any source mix.
+        ((SELECT COUNT(DISTINCT canonical_id) FROM games WHERE canonical_id IS NOT NULL)
+         + (SELECT COUNT(*) FROM games WHERE canonical_id IS NULL)) AS games,
         (SELECT COUNT(*) FROM players) AS players,
         (SELECT COUNT(DISTINCT event) FROM games WHERE event IS NOT NULL) AS events,
         (SELECT MIN(date) FROM games
@@ -223,6 +229,8 @@ export const getCoverageStats = unstable_cache(
     `);
     return r;
   },
-  ["coverage-stats:v2"],
+  // Cache key bumped to v3 so the change in semantics doesn't serve
+  // a stale v2 entry.
+  ["coverage-stats:v3"],
   { revalidate: 3600, tags: ["coverage"] }
 );

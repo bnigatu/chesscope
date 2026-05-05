@@ -14,12 +14,21 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
  * One row per game. `id` is a hash of (event, round, white, black, date) so
- * re-ingesting the same dump is idempotent (no duplicates).
+ * re-ingesting the SAME dump from the SAME source is idempotent (no
+ * duplicates).
+ *
+ * `canonical_id` is a hash of just the UCI move list + Result, used to
+ * deduplicate the same game across multiple sources (a Tata Steel round
+ * relayed by both Lichess and TWIC will have two different `id`s but the
+ * same `canonical_id`). Computed only for games with ≥30 plies; below that
+ * it's NULL because short aborted games risk move-list collisions. See
+ * `canonical_game_id()` in scripts/ingest_broadcasts.py.
  */
 export const games = sqliteTable(
   "games",
   {
     id: text("id").primaryKey(), // SHA1 of the PGN tag tuple, hex-encoded
+    canonicalId: text("canonical_id"), // SHA1 of UCI move list + result; nullable for <30-ply games
     source: text("source").notNull().default("lichess_broadcast"),
     // Player metadata, mirrors PGN tag names.
     white: text("white").notNull(),
@@ -59,6 +68,10 @@ export const games = sqliteTable(
     fideBlackIdx: index("games_black_fide_idx").on(t.blackFideId),
     eventIdx: index("games_event_idx").on(t.event),
     dateIdx: index("games_date_idx").on(t.date),
+    // Non-unique; multiple source rows can point at the same canonical
+    // game (intended). Used by COUNT(DISTINCT canonical_id) and the
+    // future cross-source dedup in player aggregates.
+    canonicalIdx: index("games_canonical_id_idx").on(t.canonicalId),
   }),
 );
 

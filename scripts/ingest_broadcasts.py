@@ -399,33 +399,37 @@ def game_id(game: chess.pgn.Game) -> str:
     return hashlib.sha1(raw).hexdigest()
 
 
-# Below this many plies, canonical_id is None: the move list is too
-# short to be reliably unique across games (quick draws, aborted
-# games can share short prefixes). Tournament rules typically forbid
-# draw offers under move 30, so 30 plies = 15 full moves cleanly
-# excludes the collision-prone short-game cases without losing real
-# tournament games.
-CANONICAL_MIN_PLIES = 30
+def canonical_game_id(
+    uci_moves: list[str], result: str, date: Optional[str]
+) -> Optional[str]:
+    """SHA1 of UCI moves + Result + YYYY.MM. Used to dedupe the same
+    physical game across multiple ingest sources: Lichess broadcast and
+    TWIC will both record the same Tata Steel round with different
+    headers but identical move sequences, so they hash to the same
+    canonical_id and queries can `COUNT(DISTINCT canonical_id)` to get
+    the true game count.
 
+    Returns None only for 0-ply (no moves at all). Short games still
+    get an id — dropping them to NULL would mean two short-game records
+    with identical moves but different headers count as two games when
+    they're really one. The year-month tiebreaker keeps the rare
+    same-opening-same-result coincidences across different real games
+    apart (two Berlin draws by different players in different months
+    are different games, even if the moves match).
 
-def canonical_game_id(uci_moves: list[str], result: str) -> Optional[str]:
-    """SHA1 of the UCI move list + Result. Returns None for sub-30-ply
-    games. Used to dedupe the same physical game across multiple ingest
-    sources: Lichess broadcast and TWIC will both record the same Tata
-    Steel round with different headers but the same move sequence, so
-    they hash to the same canonical_id and queries can `COUNT(DISTINCT
-    canonical_id)` to get the true game count.
-
-    Why moves alone, not names+date: name normalization across sources
-    is fragile (transliterations, "Last, First" vs "First Last",
-    titles, abbreviations) and date formats vary (UTCDate vs Date,
-    UTC-rollover edge). The moves of a chess game ARE the game; UCI is
-    a single canonical format, python-chess produces it deterministically,
-    and two real games producing 30+ identical UCI moves is
-    vanishingly rare in practice."""
-    if len(uci_moves) < CANONICAL_MIN_PLIES:
+    Why moves alone (not names): name normalization across sources is
+    fragile — transliterations, "Last, First" vs "First Last", titles,
+    abbreviations. UCI is deterministic across parsers, so the move
+    list IS the canonical fingerprint. YYYY.MM is granular enough to
+    separate distinct events but coarse enough to survive the day-edge
+    UTC mismatch you get when one source uses UTCDate and another
+    uses local Date."""
+    if not uci_moves:
         return None
-    raw = ("|".join(uci_moves) + "|" + (result or "*")).encode("utf-8")
+    ym = (date or "")[:7].replace("?", "0")
+    raw = (
+        "|".join(uci_moves) + "|" + (result or "*") + "|" + ym
+    ).encode("utf-8")
     return hashlib.sha1(raw).hexdigest()
 
 
@@ -464,9 +468,10 @@ def parse_game(game: chess.pgn.Game, *, store_pgn: bool) -> GameRow:
     for move in game.mainline_moves():
         uci_moves.append(move.uci())
     result = header(game, "Result") or "*"
+    date_for_canonical = header(game, "UTCDate") or header(game, "Date")
     return GameRow(
         id=game_id(game),
-        canonical_id=canonical_game_id(uci_moves, result),
+        canonical_id=canonical_game_id(uci_moves, result, date_for_canonical),
         source="lichess_broadcast",
         white=header(game, "White") or "?",
         black=header(game, "Black") or "?",

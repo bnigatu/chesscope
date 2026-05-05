@@ -5,10 +5,12 @@
 -- `canonical_id` (e.g. a Tata Steel round relayed by both Lichess and
 -- TWIC will have two different `id`s but the same `canonical_id`).
 --
--- The canonical_id itself is SHA1(UCI_move_list + "|" + Result) and is
--- only set for games with >= 30 plies (15 full moves). Below that the
--- move list is too short to be reliably unique. See
--- canonical_game_id() in scripts/ingest_broadcasts.py.
+-- The canonical_id itself is SHA1(UCI_moves + "|" + Result + "|" + YYYY.MM)
+-- and is set for any game with at least 1 ply. The year-month tiebreaker
+-- keeps short games with coincidentally identical move lists (e.g. two
+-- Berlin draws between different players in different months) from
+-- collapsing into the same canonical game. NULL only for 0-ply games.
+-- See canonical_game_id() in scripts/ingest_broadcasts.py.
 --
 -- Apply with:
 --   turso db shell chesscope < scripts/migrations/001_canonical_id.sql

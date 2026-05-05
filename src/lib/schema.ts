@@ -17,18 +17,20 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
  * re-ingesting the SAME dump from the SAME source is idempotent (no
  * duplicates).
  *
- * `canonical_id` is a hash of just the UCI move list + Result, used to
+ * `canonical_id` is a hash of UCI moves + Result + YYYY.MM, used to
  * deduplicate the same game across multiple sources (a Tata Steel round
  * relayed by both Lichess and TWIC will have two different `id`s but the
- * same `canonical_id`). Computed only for games with ≥30 plies; below that
- * it's NULL because short aborted games risk move-list collisions. See
- * `canonical_game_id()` in scripts/ingest_broadcasts.py.
+ * same `canonical_id`). The year-month component keeps short coincidental
+ * games (Berlin draw between different players, different month) from
+ * collapsing onto each other while still tolerating UTC-rollover day
+ * mismatches between sources. NULL only for 0-ply games (no moves at
+ * all). See `canonical_game_id()` in scripts/ingest_broadcasts.py.
  */
 export const games = sqliteTable(
   "games",
   {
     id: text("id").primaryKey(), // SHA1 of the PGN tag tuple, hex-encoded
-    canonicalId: text("canonical_id"), // SHA1 of UCI move list + result; nullable for <30-ply games
+    canonicalId: text("canonical_id"), // SHA1 of UCI moves + result + YYYY.MM; nullable only for 0-ply games
     source: text("source").notNull().default("lichess_broadcast"),
     // Player metadata, mirrors PGN tag names.
     white: text("white").notNull(),

@@ -7,13 +7,17 @@ const config: Config = {
       colors: {
         // "Tournament hall after hours", deep ink, parchment, oxblood, brass.
         ink: {
-          // Lifted from near-black to a warmer dark gray (chesspulse-style)
-          // so the page is less harsh while preserving panel/card layering.
-          900: "#141414",
-          800: "#1c1e22",
-          700: "#25282d",
-          600: "#30343a",
-          500: "#3f444c",
+          // Stage 1 dark-mode lift (2026-05-05): the prior ramp anchored
+          // at #141414 was sitting at Mantine's "deepest" shade and felt
+          // crushed. Lifted ~10–15 units across the ramp so the body
+          // background is closer to a Mantine `dark-7` (~#242424) while
+          // keeping enough headroom for the four-step layering used
+          // throughout the UI (page → raised panel → card → hover).
+          900: "#1f2024",
+          800: "#2a2c31",
+          700: "#34373d",
+          600: "#3f434a",
+          500: "#4a4f57",
         },
         parchment: {
           50: "#f5efe2",

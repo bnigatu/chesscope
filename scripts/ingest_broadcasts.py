@@ -89,9 +89,16 @@ DOWNLOAD_CHUNK_SIZE = 1 << 20      # 1 MiB
 DOWNLOAD_TIMEOUT = (15, 120)        # (connect, read) seconds
 DOWNLOAD_MAX_RETRIES = 8
 
-# Turso batch sizing. Larger = fewer round-trips, but Turso enforces a
-# payload size cap per transaction. 500 is empirically safe.
-BATCH_SIZE = 1000
+# Turso batch sizing. Larger = fewer round-trips, but every batch is
+# one POST /v1/batch and libsql_client builds its aiohttp session
+# without overriding the default 5-minute total timeout — there's no
+# public knob to raise it. With --store-pgn each row carries a multi-KB
+# PGN body, and 1000-row batches were timing out before the server
+# could finish writing the transaction (no first month even completed).
+# 200 keeps each request well under the timeout in the worst case while
+# only adding ~5x more roundtrips per month — negligible against the
+# overall ingest time.
+BATCH_SIZE = 200
 PROGRESS_EVERY = 5_000
 
 

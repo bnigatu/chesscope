@@ -67,12 +67,12 @@ import zstandard as zstd
 # --store-pgn carrying multi-KB PGN bodies per row) can exceed that on
 # a slow Turso server, and there's no public knob to raise it — the
 # entire HttpClient.__init__ takes only (url, auth_token). Replace the
-# constructor with one that injects a 15-minute total timeout. Done at
+# constructor with one that injects a 60-minute total timeout. Done at
 # import time so it covers every client create_client_sync makes.
 def _http_init_with_timeout(self, url, *, auth_token=None):
     self._session = aiohttp.ClientSession(
         headers={"authorization": f"Bearer {auth_token}"},
-        timeout=aiohttp.ClientTimeout(total=900),
+        timeout=aiohttp.ClientTimeout(total=3600),
     )
     self._url = url
 

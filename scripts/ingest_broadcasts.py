@@ -53,11 +53,30 @@ import unicodedata
 from pathlib import Path
 from typing import Iterable, Optional
 
+import aiohttp
 import chess.pgn
 import libsql_client
+import libsql_client.http as _libsql_http
 import logging
 import requests
 import zstandard as zstd
+
+# libsql_client builds its aiohttp.ClientSession with no timeout
+# argument, which means aiohttp's default total timeout of 5 minutes
+# applies to every POST /v1/batch. Large transactions (especially with
+# --store-pgn carrying multi-KB PGN bodies per row) can exceed that on
+# a slow Turso server, and there's no public knob to raise it — the
+# entire HttpClient.__init__ takes only (url, auth_token). Replace the
+# constructor with one that injects a 15-minute total timeout. Done at
+# import time so it covers every client create_client_sync makes.
+def _http_init_with_timeout(self, url, *, auth_token=None):
+    self._session = aiohttp.ClientSession(
+        headers={"authorization": f"Bearer {auth_token}"},
+        timeout=aiohttp.ClientTimeout(total=900),
+    )
+    self._url = url
+
+_libsql_http.HttpClient.__init__ = _http_init_with_timeout
 
 # Lichess broadcast PGNs sometimes use "0-0" (zero-zero) for castling
 # instead of the standard "O-O" (letter-O). python-chess logs each one as
@@ -89,16 +108,13 @@ DOWNLOAD_CHUNK_SIZE = 1 << 20      # 1 MiB
 DOWNLOAD_TIMEOUT = (15, 120)        # (connect, read) seconds
 DOWNLOAD_MAX_RETRIES = 8
 
-# Turso batch sizing. Larger = fewer round-trips, but every batch is
-# one POST /v1/batch and libsql_client builds its aiohttp session
-# without overriding the default 5-minute total timeout — there's no
-# public knob to raise it. With --store-pgn each row carries a multi-KB
-# PGN body, and 1000-row batches were timing out before the server
-# could finish writing the transaction (no first month even completed).
-# 200 keeps each request well under the timeout in the worst case while
-# only adding ~5x more roundtrips per month — negligible against the
-# overall ingest time.
-BATCH_SIZE = 200
+# Turso batch sizing. Larger = fewer round-trips per row of overhead.
+# 1000 was the historical default; we briefly dropped to 200 to dodge
+# aiohttp's 5-minute total timeout on big --store-pgn batches, but the
+# resulting per-row HTTP overhead made ingestion painfully slow. The
+# real fix lives in the libsql HTTP-client monkey-patch above (15-min
+# total timeout), so we can keep batches large here without hitting it.
+BATCH_SIZE = 1000
 PROGRESS_EVERY = 5_000
 
 

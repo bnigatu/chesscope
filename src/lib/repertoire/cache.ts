@@ -134,6 +134,66 @@ export async function deleteCached(key: string): Promise<void> {
   }
 }
 
+// ─── Upload handoff slot ─────────────────────────────────────────────
+//
+// When the user picks a saved .tree file in source-picker.tsx, we navigate
+// to the explorer route (`router.push`) which loses local React state.
+// The handoff used to go through `sessionStorage`, but full broadcast
+// repertoires routinely exceed sessionStorage's ~5 MB cap — Chrome /
+// Firefox / Safari throw `QuotaExceededError` on `setItem` for any tree
+// over a few thousand games. IDB has practically no cap for this payload
+// size, and the existing store + open code is already here, so we reuse
+// it via a sentinel key for the single-use upload-blob handoff.
+//
+// The stored shape is `{ key, text, savedAt }` — different from the
+// regular CacheEntry, but the object store has no schema enforcement
+// and we type-assert on read.
+
+const UPLOAD_KEY = "__uploaded_tree_blob__";
+
+type UploadEntry = {
+  key: string;
+  text: string;
+  savedAt: number;
+};
+
+/**
+ * Stash a raw .tree file body for the explorer route to pick up after
+ * navigation. Replaces any prior upload (single-slot). Returns false if
+ * IDB is unavailable or quota is exhausted.
+ */
+export async function putUploadedTree(text: string): Promise<boolean> {
+  try {
+    const store = await getStore("readwrite");
+    await reqAsPromise(
+      store.put({ key: UPLOAD_KEY, text, savedAt: Date.now() } as UploadEntry)
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read and CONSUME the uploaded .tree handoff. Returns the raw file body,
+ * or null if there's nothing to consume. The entry is deleted on the way
+ * out so a tab refresh on the explorer doesn't accidentally re-hydrate
+ * a stale upload.
+ */
+export async function takeUploadedTree(): Promise<string | null> {
+  try {
+    const store = await getStore("readwrite");
+    const entry = (await reqAsPromise(store.get(UPLOAD_KEY))) as
+      | UploadEntry
+      | undefined;
+    if (!entry) return null;
+    await reqAsPromise(store.delete(UPLOAD_KEY));
+    return entry.text;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Sweep entries past the TTL. Cheap to call on each Build to keep the
  * IDB store from growing forever.

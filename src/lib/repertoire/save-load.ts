@@ -9,8 +9,11 @@ import type { Tree } from "./tree";
 import type { RepertoireFilters } from "./filters";
 
 // V1: SAN-recursive TreeNode. Deprecated; loading V1 files yields a
-// version-mismatch error. V2: FEN-keyed Tree.
-export const TREE_FILE_VERSION = 2;
+// version-mismatch error. V2: FEN-keyed Tree. V3: same tree, adds
+// per-source game counts so the load screen can reproduce the
+// "lichess U N · chess.com U N" breakdown — the tree itself only
+// carries aggregate per-FEN totals, not per-source splits.
+export const TREE_FILE_VERSION = 3;
 export const TREE_FILE_EXT = ".tree";
 
 export type SavedTree = {
@@ -22,6 +25,14 @@ export type SavedTree = {
     chesscom?: string;
     pgnFilename?: string;
     playerName?: string;
+  };
+  // v3+: per-source totals captured at save time. Optional so a v2 file
+  // still parses cleanly into this shape (consumers fall back to the
+  // start-position aggregate count).
+  counts?: {
+    lichess?: number;
+    chesscom?: number;
+    pgn?: number;
   };
   filters: RepertoireFilters;
   tree: Tree;
@@ -65,9 +76,11 @@ export function deserializeTree(text: string): SavedTree {
       `Tree file is from a newer version (${parsed.version}). Update Chesscope.`
     );
   }
-  if (parsed.version < TREE_FILE_VERSION) {
+  // v2 → v3 is purely additive (counts metadata). Accept both; the
+  // explorer's load path falls back gracefully when counts is absent.
+  if (parsed.version < 2) {
     throw new Error(
-      `Tree file is from an older version (v${parsed.version}). The tree format changed in v${TREE_FILE_VERSION}; rebuild from your sources.`
+      `Tree file is from an older version (v${parsed.version}). The tree format changed in v2; rebuild from your sources.`
     );
   }
   return parsed;

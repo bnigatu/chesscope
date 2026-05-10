@@ -27,6 +27,7 @@ import {
   getCached,
   putCached,
   pruneExpired,
+  takeUploadedTree,
 } from "@/lib/repertoire/cache";
 import { MoveListPanel, type Move } from "./move-list-panel";
 import { MovesPanel } from "./moves-panel";
@@ -155,6 +156,11 @@ export function RepertoireExplorer({
   const abortRef = useRef<AbortController | null>(null);
   const pgnFilenameRef = useRef<string | null>(null);
   const pgnPlayerRef = useRef<string | null>(null);
+  // Source usernames recovered from a saved .tree file. The lichess/
+  // chesscom *props* are null in tree-load mode (URL has no users), so
+  // without these the Progress bar can't show "lichess U · chess.com U".
+  const lichessSourceRef = useRef<string | null>(null);
+  const chesscomSourceRef = useRef<string | null>(null);
 
   // Engine settings — lifted out of EnginePanel so the SettingsModal
   // can read/write the same source of truth. EnginePanel is now a
@@ -277,29 +283,56 @@ export function RepertoireExplorer({
     setTreeTick(0);
     pgnFilenameRef.current = null;
     pgnPlayerRef.current = null;
+    lichessSourceRef.current = null;
+    chesscomSourceRef.current = null;
     abortRef.current?.abort();
 
-    // Path 1: hydrate a saved tree directly. No ingest at all.
+    // Path 1: hydrate a saved tree directly from the IDB upload slot.
+    // No ingest at all. The handoff was sessionStorage in v1 but full
+    // broadcast trees blew its ~5 MB cap; IDB has no meaningful cap.
+    // We fall back to sessionStorage so any in-flight session that
+    // already wrote a small tree there still loads.
     if (treeEnabled) {
-      try {
-        const blob = window.sessionStorage.getItem(TREE_SESSION_KEY);
-        if (!blob) throw new Error("No saved tree in session.");
-        const saved = deserializeTree(blob);
-        treeRef.current = saved.tree;
-        pgnFilenameRef.current = saved.sources.pgnFilename ?? null;
-        pgnPlayerRef.current = saved.sources.playerName ?? null;
-        setCounts({
-          lichess: 0,
-          chesscom: 0,
-          pgn:
-            nodeAt(saved.tree, positionFen(STARTING_FEN))?.count ?? 0,
-        });
-        setTreeTick((t) => t + 1);
-        setStatus("done");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-        setStatus("error");
-      }
+      (async () => {
+        try {
+          let blob = await takeUploadedTree();
+          if (!blob) {
+            // Backward-compat: a tab opened before the IDB switch.
+            blob = window.sessionStorage.getItem(TREE_SESSION_KEY);
+            if (blob) window.sessionStorage.removeItem(TREE_SESSION_KEY);
+          }
+          if (!blob) throw new Error("No saved tree in session.");
+          const saved = deserializeTree(blob);
+          treeRef.current = saved.tree;
+          pgnFilenameRef.current = saved.sources.pgnFilename ?? null;
+          pgnPlayerRef.current = saved.sources.playerName ?? null;
+          lichessSourceRef.current = saved.sources.lichess ?? null;
+          chesscomSourceRef.current = saved.sources.chesscom ?? null;
+          // v3 files carry per-source totals. v2 files don't, so fall
+          // back to the start-position aggregate (always equals total
+          // games) parked under pgn — it's the only bucket guaranteed
+          // to render even when the source props are null.
+          if (saved.counts) {
+            setCounts({
+              lichess: saved.counts.lichess ?? 0,
+              chesscom: saved.counts.chesscom ?? 0,
+              pgn: saved.counts.pgn ?? 0,
+            });
+          } else {
+            setCounts({
+              lichess: 0,
+              chesscom: 0,
+              pgn:
+                nodeAt(saved.tree, positionFen(STARTING_FEN))?.count ?? 0,
+            });
+          }
+          setTreeTick((t) => t + 1);
+          setStatus("done");
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+          setStatus("error");
+        }
+      })();
       return;
     }
 
@@ -452,10 +485,17 @@ export function RepertoireExplorer({
   const saveTree = () => {
     downloadTreeFile({
       sources: {
-        lichess: lichessUser ?? undefined,
-        chesscom: chesscomUser ?? undefined,
+        lichess:
+          lichessUser ?? lichessSourceRef.current ?? undefined,
+        chesscom:
+          chesscomUser ?? chesscomSourceRef.current ?? undefined,
         pgnFilename: pgnFilenameRef.current ?? undefined,
         playerName: pgnPlayerRef.current ?? undefined,
+      },
+      counts: {
+        lichess: counts.lichess || undefined,
+        chesscom: counts.chesscom || undefined,
+        pgn: counts.pgn || undefined,
       },
       filters,
       tree: treeRef.current,
@@ -799,8 +839,8 @@ export function RepertoireExplorer({
         error={error}
         color={filters.color}
         limit={filters.limit}
-        lichessUser={lichessUser}
-        chesscomUser={chesscomUser}
+        lichessUser={lichessUser ?? lichessSourceRef.current}
+        chesscomUser={chesscomUser ?? chesscomSourceRef.current}
         pgnFilename={pgnFilenameRef.current}
         onCancel={cancel}
         onSave={saveTree}
@@ -955,7 +995,7 @@ function Progress({
   onSave: () => void;
 }) {
   if (status === "idle") return null;
-  const total = counts.lichess + counts.chesscom;
+  const total = counts.lichess + counts.chesscom + counts.pgn;
   const limitTxt = limit > 0 ? ` / ${limit.toLocaleString()}` : "";
   return (
     <div

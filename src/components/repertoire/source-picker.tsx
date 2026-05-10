@@ -10,9 +10,9 @@ import {
   type TimeControlKey,
 } from "@/lib/repertoire/filters";
 import { deserializeTree } from "@/lib/repertoire/save-load";
+import { putUploadedTree } from "@/lib/repertoire/cache";
 
 const PGN_SESSION_KEY = "chesscope.pgnSession";
-const TREE_SESSION_KEY = "chesscope.treeSession";
 
 const SOURCES = [
   { id: "lichess" as const, label: "Lichess" },
@@ -113,7 +113,17 @@ export function SourcePickerForm() {
     try {
       const text = await file.text();
       const saved = deserializeTree(text);
-      window.sessionStorage.setItem(TREE_SESSION_KEY, text);
+      // Hand off the file body via IDB instead of sessionStorage — full
+      // broadcast trees regularly exceed sessionStorage's ~5 MB cap and
+      // throw QuotaExceededError on setItem. IDB has no meaningful cap
+      // for this payload size.
+      const ok = await putUploadedTree(text);
+      if (!ok) {
+        throw new Error(
+          "Couldn't stage the uploaded tree (IndexedDB unavailable). " +
+          "Try a different browser or disable private browsing."
+        );
+      }
       const params = new URLSearchParams({ built: "1", tree: "1" });
       filtersToParams(params, saved.filters);
       router.push(`/?${params.toString()}`);

@@ -4,6 +4,14 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { JsonLd } from "@/components/json-ld";
 
+const GA_ID = "G-NF2NTB6YBL";
+const GA_INIT = `
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '${GA_ID}');
+`;
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://chesscope.com"),
   title: {
@@ -75,10 +83,35 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#141414",
+  // Per-theme browser chrome color. Dark = ink-900 (#1f2024), light =
+  // cream (#f7f3ea). The runtime toggle script keeps these in sync with
+  // the active theme.
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#1f2024" },
+    { media: "(prefers-color-scheme: light)", color: "#f7f3ea" },
+  ],
   width: "device-width",
   initialScale: 1,
 };
+
+// Inline no-FOUC theme bootstrap. Runs before paint to set
+// `data-theme` on <html> based on (1) explicit user choice in
+// localStorage, (2) OS prefers-color-scheme. Inlined so it never
+// blocks paint and so Next can ship it as part of the initial HTML.
+const THEME_BOOTSTRAP = `
+(function () {
+  try {
+    var saved = localStorage.getItem('chesscope.theme');
+    var prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+    var theme = saved === 'light' || saved === 'dark'
+      ? saved
+      : (prefersLight ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+`;
 
 export default function RootLayout({
   children,
@@ -86,7 +119,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Theme bootstrap runs before paint to set data-theme on <html>,
+            preventing a FOUC flash from dark→light or vice versa on
+            first paint. suppressHydrationWarning above silences React's
+            warning about the attribute being injected client-side. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+      </head>
       <body className="min-h-screen flex flex-col">
         {/* Site-wide structured data: WebSite (with SearchAction so
             Google can render the Sitelinks Search Box) + Organization.
@@ -135,6 +175,22 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
         </div>
+        {/* Google Analytics (gtag.js). Plain <script> tags rather than
+            next/script — the latter renders the script via React's RSC
+            payload (only injected after hydration), which Google's
+            install-wizard HTML scraper can't see. Real <script async>
+            tags appear in the initial HTML, satisfying both the wizard
+            and the browser. Production-only so local dev / preview
+            builds don't pollute GA stats. */}
+        {process.env.NODE_ENV === "production" && (
+          <>
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+            />
+            <script dangerouslySetInnerHTML={{ __html: GA_INIT }} />
+          </>
+        )}
       </body>
     </html>
   );

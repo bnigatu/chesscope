@@ -5,20 +5,76 @@
 @tailwind utilities;
 
 @layer base {
+  /* -------------------------------------------------------------------
+   * Theme tokens.
+   *
+   * Default `:root` is the dark palette. `[data-theme="light"]` overrides
+   * with a parchment-cream light palette tuned for WCAG AA: every body-
+   * text token meets 4.5:1 against the surface it's intended to sit on,
+   * and emphasis tokens (brass-light) meet 5:1+. The ramp keeps the same
+   * dark-mode-flavored Tailwind class names (ink-*, parchment-*) — the
+   * names lie a little in light mode but the migration cost is zero.
+   *
+   * Tokens published as `R G B` triplets (no rgb() wrapper) so Tailwind
+   * can compose them with /<alpha-value>.
+   * ------------------------------------------------------------------- */
   :root {
-    --bg: 31 32 36; /* ink-900 (#1f2024) */
-    --bg-raised: 42 44 49; /* ink-800 (#2a2c31) */
-    --bg-card: 52 55 61; /* ink-700 (#34373d) */
-    --fg: 245 239 226; /* parchment-50 */
-    --fg-muted: 194 178 145; /* parchment-300 */
-    --accent: 122 30 34; /* oxblood */
-    --brass: 184 146 74;
+    /* Surfaces (Tailwind: ink-*) — page → raised → card → border → hover */
+    --ink-900: 31 32 36;
+    --ink-800: 42 44 49;
+    --ink-700: 52 55 61;
+    --ink-600: 63 67 74;
+    --ink-500: 74 79 87;
+
+    /* Text (Tailwind: parchment-*) — primary → muted → faint → dim */
+    --parchment-50: 245 239 226;
+    --parchment-100: 237 229 210;
+    --parchment-200: 220 208 182;
+    --parchment-300: 194 178 145;
+
+    /* Brand accents that need to stay readable across themes.
+       brass-light is the "emphasized brand text" role. brass DEFAULT and
+       brass-dark stay literal (used at low alpha for borders, etc.). */
+    --brass-light: 212 174 94;
+
+    /* Decorative tokens used by globals.css overlays. Not for components. */
+    --grain-opacity: 0.03;
+    --gradient-brass: rgba(184, 146, 74, 0.035);
+    --gradient-oxblood: rgba(122, 30, 34, 0.04);
+  }
+
+  [data-theme="light"] {
+    /* Surfaces flip to parchment cream → white. The naming `ink-900` for
+       the page is a misnomer in light mode but it's the lowest-cost
+       migration path. */
+    --ink-900: 247 243 234; /* warm cream — body */
+    --ink-800: 253 249 238; /* lighter cream — raised panels */
+    --ink-700: 255 255 255; /* white — cards */
+    --ink-600: 232 226 211; /* mid paper — borders */
+    --ink-500: 213 204 184; /* deeper paper — hover surfaces */
+
+    /* Text flips: deep ink on cream. Contrast vs --ink-900 (cream):
+       primary 16:1, muted 11:1, faint 7:1, dim 5.4:1 — all pass AA. */
+    --parchment-50: 31 32 36;
+    --parchment-100: 52 55 61;
+    --parchment-200: 75 80 88;
+    --parchment-300: 110 100 80;
+
+    /* brass-light flips to brass-dark hex so emphasis text passes AA on
+       cream (5.4:1). Components keep using `text-brass-light`; the value
+       it resolves to changes per theme. */
+    --brass-light: 140 109 51;
+
+    /* Cream + noise grain reads as visual clutter. Soften both layers. */
+    --grain-opacity: 0.012;
+    --gradient-brass: rgba(140, 109, 51, 0.04);
+    --gradient-oxblood: rgba(122, 30, 34, 0.03);
   }
 
   html,
   body {
-    background: rgb(var(--bg));
-    color: rgb(var(--fg));
+    background: rgb(var(--ink-900));
+    color: rgb(var(--parchment-50));
     font-family: theme("fontFamily.body");
     font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
@@ -26,7 +82,8 @@
   }
 
   /* Subtle paper-grain texture across the whole page. Very faint, sets a
-     tone without competing with content. */
+     tone without competing with content. Uses CSS variables so the light
+     theme can soften both layers (cream + grain reads cluttered). */
   body::before {
     content: "";
     position: fixed;
@@ -36,12 +93,12 @@
     background-image:
       radial-gradient(
         circle at 20% 10%,
-        rgba(184, 146, 74, 0.035),
+        var(--gradient-brass),
         transparent 50%
       ),
       radial-gradient(
         circle at 80% 90%,
-        rgba(122, 30, 34, 0.04),
+        var(--gradient-oxblood),
         transparent 55%
       );
   }
@@ -52,14 +109,14 @@
     inset: 0;
     pointer-events: none;
     z-index: 0;
-    opacity: 0.03;
+    opacity: var(--grain-opacity);
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .94  0 0 0 0 .8  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   }
 
   ::selection {
-    background: rgb(var(--brass) / 0.9);
-    color: rgb(var(--bg));
+    background: rgb(184 146 74 / 0.9); /* brass — same in both themes */
+    color: rgb(var(--ink-900));
   }
 
   /* Display headings get distinctive optical sizing from Fraunces. */

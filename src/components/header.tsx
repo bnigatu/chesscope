@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "./knight-mark";
+import { ThemeToggle } from "./theme-toggle";
 
 export function Header() {
   return (
@@ -13,6 +14,7 @@ export function Header() {
           <NavLink href="/">Repertoire</NavLink>
           <NavLink href="/search">Search</NavLink>
           <NavLink href="/about">About</NavLink>
+          <ThemeToggle />
         </nav>
       </div>
     </header>

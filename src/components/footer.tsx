@@ -85,7 +85,7 @@ export function Footer() {
             its respective sources, redistributed under their licenses.
           </p>
           <p className="italic">
-            Caïssa, protectress of the sixty-four squares.
+            Caïssa | protectress of the sixty-four squares.
           </p>
         </div>
       </div>

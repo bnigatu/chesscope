@@ -74,7 +74,7 @@ export default async function HomePage({
           </Link>
         ) : (
           <h1 className="font-display text-4xl sm:text-5xl font-light text-parchment-50 leading-[1.1]">
-            See any player&rsquo;s full opening repertoire —{" "}
+            See any player&rsquo;s full opening repertoire |{" "}
             <em className="font-display italic text-brass-light">
               Lichess and Chess.com
             </em>{" "}

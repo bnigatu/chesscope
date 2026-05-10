@@ -62,7 +62,7 @@ export default async function SearchPage({
               .
             </h1>
             <p className="text-parchment-100/75 max-w-xl text-lg leading-relaxed">
-              Every game from the Lichess broadcast archive — coaches preparing
+              Every game from the Lichess broadcast archive | coaches preparing
               for tournaments, journalists tracking players, parents looking up
               their kids&rsquo; games. No login, no rate limits, no tracking.
             </p>

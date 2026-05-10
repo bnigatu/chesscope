@@ -321,7 +321,7 @@ wrangler tail
 - Typography: [Fraunces](https://fonts.google.com/specimen/Fraunces),
   [Inter Tight](https://fonts.google.com/specimen/Inter+Tight),
   [JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono).
-- Caïssa, the patron goddess of chess, gets the dedication.
+- Caïssa | the patron goddess of chess, gets the dedication.
 
 ## License
 

@@ -642,27 +642,82 @@ def row_to_params(r: GameRow) -> list:
     ]
 
 
+# Transient errors that resolve in tens of milliseconds — usually a
+# replication-catchup blip or a TCP idle-timeout prune from Turso's
+# side. Worth retrying aggressively with short jittered backoff
+# instead of the multi-second exponential backoff that wedged earlier
+# runs (a single SQLITE_BUSY at 2s+4s+raise burns 6s of wall clock for
+# a contention event that typically clears in <100ms).
+_TRANSIENT_PATTERNS = (
+    "SQLITE_BUSY",
+    "database is locked",
+    "Connection reset by peer",
+    "Server disconnected",
+    "Cannot connect to host",
+)
+# Backoff schedule for transient errors, in seconds. 6 attempts; total
+# worst-case wait ~7.5s vs the old 6s but with much higher hit-rate
+# because BUSY almost always clears in the first 200ms slot.
+_TRANSIENT_BACKOFFS = (0.1, 0.3, 0.6, 1.2, 2.5, 5.0)
+
+
+def _is_transient(exc: Exception) -> bool:
+    msg = repr(exc)
+    return any(pat in msg for pat in _TRANSIENT_PATTERNS)
+
+
 def write_batch(client: libsql_client.Client, rows: list[GameRow]) -> int:
     if not rows:
         return 0
     statements = [
         libsql_client.Statement(GAMES_INSERT, row_to_params(r)) for r in rows
     ]
-    for attempt in range(1, 4):
+    transient_attempts = 0
+    hard_attempts = 0
+    while True:
         try:
             client.batch(statements)
             return len(rows)
         except Exception as exc:  # noqa: BLE001
-            if attempt == 3:
+            if _is_transient(exc):
+                if transient_attempts >= len(_TRANSIENT_BACKOFFS):
+                    # Exhausted the soft retries — escalate to the hard
+                    # path so a sustained outage still surfaces an error.
+                    hard_attempts += 1
+                    if hard_attempts >= 3:
+                        raise
+                    backoff = 2 ** hard_attempts
+                    print(
+                        f"[chesscope] turso batch still failing transiently "
+                        f"({exc!r}); escalating retry {hard_attempts}/3 "
+                        f"in {backoff}s",
+                        file=sys.stderr,
+                    )
+                    time.sleep(backoff)
+                    continue
+                backoff = _TRANSIENT_BACKOFFS[transient_attempts]
+                transient_attempts += 1
+                # Quiet about transient errors after the first one — they
+                # spam the log and aren't actionable per occurrence.
+                if transient_attempts == 1:
+                    print(
+                        f"[chesscope] turso batch transient ({exc!r}); "
+                        f"retrying with short backoff",
+                        file=sys.stderr,
+                    )
+                time.sleep(backoff)
+                continue
+            # Non-transient: original conservative behavior.
+            hard_attempts += 1
+            if hard_attempts >= 3:
                 raise
-            backoff = 2 ** attempt
+            backoff = 2 ** hard_attempts
             print(
                 f"[chesscope] turso batch failed ({exc!r}); "
-                f"retry {attempt}/3 in {backoff}s",
+                f"retry {hard_attempts}/3 in {backoff}s",
                 file=sys.stderr,
             )
             time.sleep(backoff)
-    return 0
 
 
 # ---------------------------------------------------------------------------

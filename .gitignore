@@ -8,6 +8,9 @@ node_modules/
 out/
 build/
 dist/
+# typescript incremental build cache — machine-local, regenerated on
+# every tsc/next build, contains absolute paths + timestamps
+*.tsbuildinfo
 
 # opennext / cloudflare
 .open-next/

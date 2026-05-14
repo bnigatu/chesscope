@@ -30,6 +30,12 @@ jobs:
     # where key like 'ingested_file:%'` matches the number of monthly
     # dumps Lichess publishes.
     timeout-minutes: 360
+    # Hoisted to job level so the deploy steps below can gate
+    # themselves on env.CLOUDFLARE_API_TOKEN != '' — when the secret
+    # isn't configured, all the npm setup is skipped too, not just
+    # the deploy itself.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
     steps:
       - name: Checkout
@@ -59,12 +65,31 @@ jobs:
           fi
           python scripts/ingest_broadcasts.py "${ARGS[@]}"
 
-      - name: Trigger Cloudflare deploy
-        # Re-deploy so generateStaticParams picks up new top players.
-        # Optional: skip if you'd rather rely on ISR alone.
-        if: env.CLOUDFLARE_DEPLOY_HOOK != ''
-        env:
-          CLOUDFLARE_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+      # ── Auto-redeploy after successful ingest ─────────────────────────
+      # Cloudflare Workers don't have native deploy hooks (Pages does);
+      # the way to refresh the OpenNext R2 incremental cache from CI is
+      # to actually re-run `wrangler deploy`, which is what `npm run
+      # deploy` does locally. Without this, /player/[slug] pages cached
+      # as 404 *before* refresh_players added the row stay 404 until
+      # their 1h ISR window expires (and even then, OpenNext's SWR
+      # rebuild was observed to not flip stale 404s reliably).
+      #
+      # All three deploy steps are gated on CLOUDFLARE_API_TOKEN being
+      # set so the workflow stays a no-op until you've added the secret
+      # — first-run-after-merge doesn't fail.
+      - name: Set up Node for deploy
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Node dependencies for deploy
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: npm ci
+
+      - name: Deploy to Cloudflare (busts ISR cache)
+        if: env.CLOUDFLARE_API_TOKEN != ''
         run: |
-          curl -fsS -X POST "$CLOUDFLARE_DEPLOY_HOOK" \
-            && echo "[chesscope] deploy hook fired"
+          node node_modules/@opennextjs/cloudflare/dist/cli/index.js build
+          node node_modules/@opennextjs/cloudflare/dist/cli/index.js deploy

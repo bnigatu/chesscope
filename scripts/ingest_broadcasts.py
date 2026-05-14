@@ -1011,12 +1011,12 @@ def main() -> int:
     )
 
     # Load the set of months we've already ingested at a known SHA.
-    # We always re-process the most-recent discovered month even if
-    # its SHA matches, because Lichess appends games to the current
-    # month's dump throughout the month — the SHA may match in the
-    # middle of a calendar month but we want to pick up additions.
-    # Older months are immutable once Lichess closes them, so SHA
-    # match means "nothing to do".
+    # SHA match means "nothing to do" — even for the newest discovered
+    # month. The previous policy re-processed the newest month every
+    # run on the theory that Lichess appends games mid-month, but if
+    # appends actually happened the SHA would change and the equality
+    # check below would already trip. Trusting the SHA saves the full
+    # ~17 MB re-download + month-of-rows re-ingest each run.
     ingested_files: dict[str, str] = (
         load_ingested_files(client) if client is not None else {}
     )
@@ -1034,8 +1034,6 @@ def main() -> int:
     # Track the most-recent (newest) month label so we know not to
     # skip it on SHA match. `sources` is sorted oldest-first, so the
     # newest month is at the end.
-    newest_month_label = sources[-1][0] if sources else None
-
     for month_label, source in sources:
         last_source = source
 
@@ -1046,15 +1044,13 @@ def main() -> int:
             filename = Path(source).name
 
         # Skip if this month's published SHA matches what we've
-        # already ingested. The newest discovered month is exempt —
-        # Lichess appends games to it throughout the calendar month.
+        # already ingested. Applies to the newest month too — see the
+        # ingested_files comment above for why.
         published_sha = checksums.get(filename)
         already_sha = ingested_files.get(filename)
-        is_newest = month_label == newest_month_label
         if (
             published_sha
             and already_sha == published_sha
-            and not is_newest
             and not args.url
             and not args.month
             and not args.dry_run

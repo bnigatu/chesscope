@@ -143,21 +143,56 @@ export async function getPlayer(slug: string) {
 
 /**
  * Fetch a player's games, most recent first.
+ *
+ * Performance note: the obvious shape (single SELECT with `g.white = p.name
+ * OR g.black = p.name OR ... white_fide_id ... OR ... black_fide_id ...`)
+ * is a query-plan trap. SQLite can't use any index for an OR'd predicate
+ * across four different columns and falls back to a games-table scan —
+ * fatal at million-row scale. Some popular players hung the request
+ * entirely (>120s timeout in production probes).
+ *
+ * The fix below resolves the player once via the slug PK, then UNIONs four
+ * separately-indexed branches (one per match column) into a small id set,
+ * and finally fetches the display columns by primary key. Each branch
+ * uses its dedicated index (games_white_idx, games_black_idx,
+ * games_white_fide_idx, games_black_fide_idx). UNION dedupes games that
+ * match multiple branches (e.g. white name + white FIDE both point to
+ * the same game).
  */
 export async function getPlayerGames(slug: string, limit = 100) {
   const db = getDb();
   const rows = await db.all<
     GameHit & { white_elo: number | null; black_elo: number | null }
   >(sql`
+    WITH p AS (
+      SELECT name, fide_id FROM players WHERE slug = ${slug} LIMIT 1
+    ),
+    match_ids AS (
+      SELECT g.id, g.date, g.timestamp
+        FROM games g, p
+       WHERE g.white = p.name
+      UNION
+      SELECT g.id, g.date, g.timestamp
+        FROM games g, p
+       WHERE g.black = p.name
+      UNION
+      SELECT g.id, g.date, g.timestamp
+        FROM games g, p
+       WHERE p.fide_id IS NOT NULL
+         AND g.white_fide_id = p.fide_id
+      UNION
+      SELECT g.id, g.date, g.timestamp
+        FROM games g, p
+       WHERE p.fide_id IS NOT NULL
+         AND g.black_fide_id = p.fide_id
+    )
     SELECT
       g.id, g.white, g.black, g.event, g.date, g.result,
       g.eco, g.opening, g.broadcast_url, g.white_elo, g.black_elo
-    FROM games g
-    JOIN players p ON p.slug = ${slug}
-    WHERE g.white = p.name OR g.black = p.name
-       OR (p.fide_id IS NOT NULL AND (g.white_fide_id = p.fide_id OR g.black_fide_id = p.fide_id))
-    ORDER BY g.date DESC, g.timestamp DESC
-    LIMIT ${limit}
+      FROM match_ids m
+      JOIN games g ON g.id = m.id
+     ORDER BY m.date DESC, m.timestamp DESC
+     LIMIT ${limit}
   `);
   return rows;
 }

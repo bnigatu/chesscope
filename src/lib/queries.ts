@@ -176,30 +176,31 @@ export async function getPlayerGames(slug: string, limit = 100) {
                    g.eco, g.opening, g.broadcast_url,
                    g.white_elo, g.black_elo, g.timestamp`;
 
-  // Each branch is an indexed equality + ORDER BY + LIMIT — SQLite can
-  // walk the index in date order and stop early. white/black columns
-  // are indexed via games_white_idx / games_black_idx, fide columns via
-  // games_white_fide_idx / games_black_fide_idx.
+  // Each branch is an indexed equality + ORDER BY + LIMIT — composite
+  // indexes (games_white_date_idx etc.) let SQLite walk the index in
+  // date-DESC order and stop at LIMIT. The CASE puts unknown PGN dates
+  // ("????.??.??") at the bottom — string compare otherwise sorts "?"
+  // higher than digits in DESC and they'd appear at the top.
+  const order = sql`ORDER BY (CASE WHEN g.date IS NULL OR g.date LIKE '%?%'
+                                   THEN 1 ELSE 0 END) ASC,
+                              g.date DESC,
+                              g.timestamp DESC`;
   const branches: Promise<Row[]>[] = [
     db.all<Row>(sql`SELECT ${cols} FROM games g
                      WHERE g.white = ${player.name}
-                     ORDER BY g.date DESC, g.timestamp DESC
-                     LIMIT ${limit}`),
+                     ${order} LIMIT ${limit}`),
     db.all<Row>(sql`SELECT ${cols} FROM games g
                      WHERE g.black = ${player.name}
-                     ORDER BY g.date DESC, g.timestamp DESC
-                     LIMIT ${limit}`),
+                     ${order} LIMIT ${limit}`),
   ];
   if (player.fideId) {
     branches.push(
       db.all<Row>(sql`SELECT ${cols} FROM games g
                        WHERE g.white_fide_id = ${player.fideId}
-                       ORDER BY g.date DESC, g.timestamp DESC
-                       LIMIT ${limit}`),
+                       ${order} LIMIT ${limit}`),
       db.all<Row>(sql`SELECT ${cols} FROM games g
                        WHERE g.black_fide_id = ${player.fideId}
-                       ORDER BY g.date DESC, g.timestamp DESC
-                       LIMIT ${limit}`),
+                       ${order} LIMIT ${limit}`),
     );
   }
 
@@ -208,7 +209,11 @@ export async function getPlayerGames(slug: string, limit = 100) {
   for (const rows of results) {
     for (const r of rows) merged.set(r.id, r);
   }
+  // JS-side merge sort uses the same "unknown last" rule.
   const sorted = [...merged.values()].sort((a, b) => {
+    const aUnknown = !a.date || a.date.includes("?");
+    const bUnknown = !b.date || b.date.includes("?");
+    if (aUnknown !== bUnknown) return aUnknown ? 1 : -1;
     const d = (b.date ?? "").localeCompare(a.date ?? "");
     if (d !== 0) return d;
     return (b.timestamp ?? 0) - (a.timestamp ?? 0);

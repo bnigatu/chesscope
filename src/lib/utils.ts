@@ -1,15 +1,25 @@
 /**
  * Format a PGN date for display. PGN dates can be partial:
- * "2024.??.??", "2024.06.??", "2024.06.15".
+ * "2024.??.??", "2024.06.??", "2024.06.15". Some non-Lichess sources use
+ * "-" instead of ".", and a few have garbage in individual components.
+ * Defensive against all of those — never emits "NaN" or partial junk.
  */
 export function formatPgnDate(date: string | null): string {
   if (!date) return "—";
-  const [y, m, d] = date.split(".");
-  if (y === "????" || !y) return "—";
-  if (m === "??" || !m) return y;
-  const monthName = MONTHS[parseInt(m, 10) - 1] ?? m;
-  if (d === "??" || !d) return `${monthName} ${y}`;
-  return `${monthName} ${parseInt(d, 10)}, ${y}`;
+  const parts = date.split(/[.\-/]/);
+  const [y, m, d] = parts;
+  if (!isDigits(y, 4)) return "—";
+  if (!isDigits(m, 2)) return y;
+  const monthIdx = parseInt(m, 10) - 1;
+  if (monthIdx < 0 || monthIdx > 11) return y;
+  if (!isDigits(d, 2)) return `${MONTHS[monthIdx]} ${y}`;
+  const day = parseInt(d, 10);
+  if (day < 1 || day > 31) return `${MONTHS[monthIdx]} ${y}`;
+  return `${MONTHS[monthIdx]} ${day}, ${y}`;
+}
+
+function isDigits(s: string | undefined, len: number): boolean {
+  return !!s && s.length === len && /^[0-9]+$/.test(s);
 }
 
 const MONTHS = [

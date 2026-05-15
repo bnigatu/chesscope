@@ -809,7 +809,11 @@ def refresh_players(client: libsql_client.Client) -> None:
             if ts > a["latest_ts"]:
                 a["latest_ts"] = ts
                 a["latest_elo"] = elo
-        if date:
+        # Treat dates with PGN's "?"-placeholder as unknown for first/last
+        # seen — string compare otherwise sorts "????.??.??" higher than
+        # any real date and one bad PGN row poisons the player's last_seen
+        # display ("Last seen: —" when a player has dozens of dated games).
+        if date and "?" not in date:
             if a["first_seen"] is None or date < a["first_seen"]:
                 a["first_seen"] = date
             if a["last_seen"] is None or date > a["last_seen"]:
@@ -834,6 +838,37 @@ def refresh_players(client: libsql_client.Client) -> None:
         written += len(chunk)
     print(f"[chesscope] players: {written:,} unique slugs upserted",
           file=sys.stderr)
+
+
+def optimize_fts(client: libsql_client.Client) -> None:
+    """Defrag the FTS5 indexes after a write batch.
+
+    FTS5 stores updates as immutable segments and accumulates them on every
+    INSERT/DELETE, so common-term searches walk many segments and slow
+    down over time. `INSERT INTO <fts>(<fts>) VALUES('optimize')` collapses
+    the segments back into one. Cheap to run in steady state (a few seconds
+    when there's little new content); takes longer the first time after a
+    big backfill but still well inside the workflow budget."""
+    print("[chesscope] optimizing FTS indexes…", file=sys.stderr)
+    started = time.time()
+    try:
+        client.execute(
+            "INSERT INTO players_fts(players_fts) VALUES('optimize')"
+        )
+        client.execute(
+            "INSERT INTO games_fts(games_fts) VALUES('optimize')"
+        )
+        print(
+            f"[chesscope] FTS optimize complete in {time.time() - started:.1f}s",
+            file=sys.stderr,
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Don't fail the whole run on optimize failure — the data is still
+        # correct, search just won't be as fast as it could be.
+        print(
+            f"[chesscope] FTS optimize failed (non-fatal): {exc!r}",
+            file=sys.stderr,
+        )
 
 
 def update_sync_state(
@@ -1169,6 +1204,7 @@ def main() -> int:
     if client is not None:
         if not args.skip_aggregate:
             refresh_players(client)
+            optimize_fts(client)
         update_sync_state(client, "last_full_sync_total", str(total))
         update_sync_state(client, "last_full_sync_source", last_source)
         update_sync_state(

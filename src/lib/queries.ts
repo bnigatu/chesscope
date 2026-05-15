@@ -151,50 +151,71 @@ export async function getPlayer(slug: string) {
  * fatal at million-row scale. Some popular players hung the request
  * entirely (>120s timeout in production probes).
  *
- * The fix below resolves the player once via the slug PK, then UNIONs four
- * separately-indexed branches (one per match column) into a small id set,
- * and finally fetches the display columns by primary key. Each branch
- * uses its dedicated index (games_white_idx, games_black_idx,
- * games_white_fide_idx, games_black_fide_idx). UNION dedupes games that
- * match multiple branches (e.g. white name + white FIDE both point to
- * the same game).
+ * Two-step approach:
+ *   1. Resolve the player by slug PK (fast).
+ *   2. Fire 2-4 small per-column queries in parallel, each with its own
+ *      ORDER BY date DESC LIMIT — every query becomes an indexed lookup
+ *      with an early stop. SQLite walks at most `limit` rows per branch.
+ *   3. Merge the results in JS, dedupe by game id, sort, slice.
+ *
+ * Tradeoff: 3-5 round-trips instead of 1. Each round-trip is ~100-500ms;
+ * total budget ~0.5-2s even for very active players. Compares favorably
+ * to the >120s timeouts of the OR-based version.
  */
 export async function getPlayerGames(slug: string, limit = 100) {
+  const player = await getPlayer(slug);
+  if (!player) return [];
+
   const db = getDb();
-  const rows = await db.all<
-    GameHit & { white_elo: number | null; black_elo: number | null }
-  >(sql`
-    WITH p AS (
-      SELECT name, fide_id FROM players WHERE slug = ${slug} LIMIT 1
-    ),
-    match_ids AS (
-      SELECT g.id, g.date, g.timestamp
-        FROM games g, p
-       WHERE g.white = p.name
-      UNION
-      SELECT g.id, g.date, g.timestamp
-        FROM games g, p
-       WHERE g.black = p.name
-      UNION
-      SELECT g.id, g.date, g.timestamp
-        FROM games g, p
-       WHERE p.fide_id IS NOT NULL
-         AND g.white_fide_id = p.fide_id
-      UNION
-      SELECT g.id, g.date, g.timestamp
-        FROM games g, p
-       WHERE p.fide_id IS NOT NULL
-         AND g.black_fide_id = p.fide_id
-    )
-    SELECT
-      g.id, g.white, g.black, g.event, g.date, g.result,
-      g.eco, g.opening, g.broadcast_url, g.white_elo, g.black_elo
-      FROM match_ids m
-      JOIN games g ON g.id = m.id
-     ORDER BY m.date DESC, m.timestamp DESC
-     LIMIT ${limit}
-  `);
-  return rows;
+  type Row = GameHit & {
+    white_elo: number | null;
+    black_elo: number | null;
+    timestamp: number | null;
+  };
+  const cols = sql`g.id, g.white, g.black, g.event, g.date, g.result,
+                   g.eco, g.opening, g.broadcast_url,
+                   g.white_elo, g.black_elo, g.timestamp`;
+
+  // Each branch is an indexed equality + ORDER BY + LIMIT — SQLite can
+  // walk the index in date order and stop early. white/black columns
+  // are indexed via games_white_idx / games_black_idx, fide columns via
+  // games_white_fide_idx / games_black_fide_idx.
+  const branches: Promise<Row[]>[] = [
+    db.all<Row>(sql`SELECT ${cols} FROM games g
+                     WHERE g.white = ${player.name}
+                     ORDER BY g.date DESC, g.timestamp DESC
+                     LIMIT ${limit}`),
+    db.all<Row>(sql`SELECT ${cols} FROM games g
+                     WHERE g.black = ${player.name}
+                     ORDER BY g.date DESC, g.timestamp DESC
+                     LIMIT ${limit}`),
+  ];
+  if (player.fideId) {
+    branches.push(
+      db.all<Row>(sql`SELECT ${cols} FROM games g
+                       WHERE g.white_fide_id = ${player.fideId}
+                       ORDER BY g.date DESC, g.timestamp DESC
+                       LIMIT ${limit}`),
+      db.all<Row>(sql`SELECT ${cols} FROM games g
+                       WHERE g.black_fide_id = ${player.fideId}
+                       ORDER BY g.date DESC, g.timestamp DESC
+                       LIMIT ${limit}`),
+    );
+  }
+
+  const results = await Promise.all(branches);
+  const merged = new Map<string, Row>();
+  for (const rows of results) {
+    for (const r of rows) merged.set(r.id, r);
+  }
+  const sorted = [...merged.values()].sort((a, b) => {
+    const d = (b.date ?? "").localeCompare(a.date ?? "");
+    if (d !== 0) return d;
+    return (b.timestamp ?? 0) - (a.timestamp ?? 0);
+  });
+  // Strip the timestamp scratch column before returning — callers only
+  // expect the GameHit + elo shape.
+  return sorted.slice(0, limit).map(({ timestamp: _t, ...rest }) => rest);
 }
 
 /**

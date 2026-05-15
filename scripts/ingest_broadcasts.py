@@ -759,6 +759,19 @@ ON CONFLICT(slug) DO UPDATE SET
 """
 
 
+def _is_complete_date(s) -> bool:
+    """True only for `YYYY-MM-DD` or `YYYY.MM.DD` with all digits.
+    Rejects None/empty, partial PGN dates ("2024.??.??"), wrong-length
+    strings, non-ASCII separators, and anything with non-digit
+    components. Used by refresh_players to keep first_seen / last_seen
+    safe under string comparison."""
+    if not s or len(s) != 10:
+        return False
+    if s[4] not in (".", "-") or s[7] not in (".", "-"):
+        return False
+    return s[:4].isdigit() and s[5:7].isdigit() and s[8:].isdigit()
+
+
 def refresh_players(client: libsql_client.Client) -> None:
     print("[chesscope] rebuilding players aggregate…", file=sys.stderr)
     rs = client.execute(
@@ -809,11 +822,14 @@ def refresh_players(client: libsql_client.Client) -> None:
             if ts > a["latest_ts"]:
                 a["latest_ts"] = ts
                 a["latest_elo"] = elo
-        # Treat dates with PGN's "?"-placeholder as unknown for first/last
-        # seen — string compare otherwise sorts "????.??.??" higher than
-        # any real date and one bad PGN row poisons the player's last_seen
-        # display ("Last seen: —" when a player has dozens of dated games).
-        if date and "?" not in date:
+        # Skip anything that isn't a fully-formed YYYY-MM-DD or YYYY.MM.DD.
+        # The previous "no ? in date" filter wasn't strict enough — non-
+        # ASCII separators (en-dash from some sources), partial dates, and
+        # other oddities slipped through and then sorted ABOVE real dates
+        # in string comparison (their unicode codepoints exceed digits),
+        # poisoning last_seen for top GMs whose games come from many
+        # different upstream sources.
+        if _is_complete_date(date):
             if a["first_seen"] is None or date < a["first_seen"]:
                 a["first_seen"] = date
             if a["last_seen"] is None or date > a["last_seen"]:

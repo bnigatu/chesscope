@@ -178,13 +178,11 @@ export async function getPlayerGames(slug: string, limit = 100) {
 
   // Each branch is an indexed equality + ORDER BY + LIMIT — composite
   // indexes (games_white_date_idx etc.) let SQLite walk the index in
-  // date-DESC order and stop at LIMIT. The CASE puts unknown PGN dates
-  // ("????.??.??") at the bottom — string compare otherwise sorts "?"
-  // higher than digits in DESC and they'd appear at the top.
-  const order = sql`ORDER BY (CASE WHEN g.date IS NULL OR g.date LIKE '%?%'
-                                   THEN 1 ELSE 0 END) ASC,
-                              g.date DESC,
-                              g.timestamp DESC`;
+  // date-DESC order and stop at LIMIT. The "unknown date last" logic
+  // is done in JS after merging (see below) so we don't introduce
+  // expressions in ORDER BY that defeat composite-index usage or
+  // confuse the SQL parameter parser with literal "?" characters.
+  const order = sql`ORDER BY g.date DESC, g.timestamp DESC`;
   const branches: Promise<Row[]>[] = [
     db.all<Row>(sql`SELECT ${cols} FROM games g
                      WHERE g.white = ${player.name}

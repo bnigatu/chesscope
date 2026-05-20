@@ -53,8 +53,10 @@ jobs:
 
       - name: Run ingestion
         env:
-          TURSO_URL: ${{ secrets.TURSO_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          # D1 REST API needs all three. CLOUDFLARE_API_TOKEN is hoisted
+          # to the job-level env above (also used by the deploy step).
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
         run: |
           ARGS=()
           if [ -n "${{ github.event.inputs.limit }}" ]; then

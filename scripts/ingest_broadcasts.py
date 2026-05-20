@@ -2,8 +2,9 @@
 Chesscope broadcast ingestion.
 
 Pulls monthly PGN dumps from database.lichess.org, parses each game, and
-upserts it into Turso. Designed for a weekly GitHub Actions cron: resumable
-on failure, idempotent reruns, no infinite loops on broken streams.
+upserts it into Cloudflare D1. Designed for a weekly GitHub Actions cron:
+resumable on failure, idempotent reruns, no infinite loops on broken
+streams. (Migrated off Turso 2026-05-20 after repeated read-quota walls.)
 
 Architecture:
 
@@ -17,12 +18,13 @@ Architecture:
 
   3. PARSE: stream-decompress the local file and walk games.
 
-  4. UPSERT: batch into Turso over Hrana-HTTPS (the libsql:// scheme is
-     auto-rewritten to https:// — see the long comment near `turso_http_url`).
+  4. UPSERT: batch into D1 via Cloudflare's REST API (no Python SDK
+     exists — see the D1Client class below).
 
 Run:
-    export TURSO_URL=libsql://...
-    export TURSO_AUTH_TOKEN=...
+    export CLOUDFLARE_ACCOUNT_ID=...
+    export D1_DATABASE_ID=...
+    export CLOUDFLARE_API_TOKEN=...
     python scripts/ingest_broadcasts.py
 
 Useful flags:
@@ -33,9 +35,9 @@ Useful flags:
     --skip-download    Use already-downloaded files in --cache-dir.
     --cache-dir PATH   Where to store downloads (default: ./cache).
     --no-verify        Skip SHA256 checks (test only).
-    --store-pgn        Persist full PGN bodies in Turso (larger DB).
+    --store-pgn        Persist full PGN bodies in D1 (larger DB).
     --skip-aggregate   Skip the players-table rebuild.
-    --dry-run          Parse and count, don't write to Turso.
+    --dry-run          Parse and count, don't write to D1.
 """
 
 from __future__ import annotations
@@ -53,30 +55,10 @@ import unicodedata
 from pathlib import Path
 from typing import Iterable, Optional
 
-import aiohttp
 import chess.pgn
-import libsql_client
-import libsql_client.http as _libsql_http
 import logging
 import requests
 import zstandard as zstd
-
-# libsql_client builds its aiohttp.ClientSession with no timeout
-# argument, which means aiohttp's default total timeout of 5 minutes
-# applies to every POST /v1/batch. Large transactions (especially with
-# --store-pgn carrying multi-KB PGN bodies per row) can exceed that on
-# a slow Turso server, and there's no public knob to raise it — the
-# entire HttpClient.__init__ takes only (url, auth_token). Replace the
-# constructor with one that injects a 60-minute total timeout. Done at
-# import time so it covers every client create_client_sync makes.
-def _http_init_with_timeout(self, url, *, auth_token=None):
-    self._session = aiohttp.ClientSession(
-        headers={"authorization": f"Bearer {auth_token}"},
-        timeout=aiohttp.ClientTimeout(total=3600),
-    )
-    self._url = url
-
-_libsql_http.HttpClient.__init__ = _http_init_with_timeout
 
 # Lichess broadcast PGNs sometimes use "0-0" (zero-zero) for castling
 # instead of the standard "O-O" (letter-O). python-chess logs each one as
@@ -108,14 +90,102 @@ DOWNLOAD_CHUNK_SIZE = 1 << 20      # 1 MiB
 DOWNLOAD_TIMEOUT = (15, 120)        # (connect, read) seconds
 DOWNLOAD_MAX_RETRIES = 8
 
-# Turso batch sizing. Larger = fewer round-trips per row of overhead.
-# 1000 was the historical default; we briefly dropped to 200 to dodge
-# aiohttp's 5-minute total timeout on big --store-pgn batches, but the
-# resulting per-row HTTP overhead made ingestion painfully slow. The
-# real fix lives in the libsql HTTP-client monkey-patch above (15-min
-# total timeout), so we can keep batches large here without hitting it.
-BATCH_SIZE = 1000
+# D1 REST API limits each request body to ~1 MB and each batch to ~50
+# statements. We send statement-per-array-element batches at this size;
+# 500 INSERTs of metadata-only rows fits comfortably. If --store-pgn
+# is ever turned on the script will need a smaller value or chunked
+# multi-batch flushes.
+BATCH_SIZE = 500
 PROGRESS_EVERY = 5_000
+
+# ---------------------------------------------------------------------------
+# Cloudflare D1 REST client
+# ---------------------------------------------------------------------------
+# D1 has no Python SDK. We hit the public REST API directly. Class shape
+# mimics libsql_client.{Client,Statement,ResultSet} so the rest of the
+# script (write_batch, refresh_players, update_sync_state, etc.) sees
+# the same interface it always saw.
+
+
+class D1Statement:
+    """D1Statement compat — pair of SQL and positional args."""
+
+    __slots__ = ("sql", "args")
+
+    def __init__(self, sql: str, args: Optional[Iterable] = None):
+        self.sql = sql
+        self.args = list(args) if args is not None else []
+
+
+class D1ResultSet:
+    """libsql_client.ResultSet compat — `.rows` is a list of positional
+    row arrays (matching the SELECT clause order). We use D1's /raw
+    endpoint specifically because it returns positional rows; the
+    /query endpoint returns named-column dicts which would require
+    rewriting every `row[N]` access site in the script."""
+
+    __slots__ = ("columns", "rows")
+
+    def __init__(self, columns: list, rows: list):
+        self.columns = columns
+        self.rows = rows
+
+
+class D1Client:
+    """Cloudflare D1 REST API client with a D1Client-shaped
+    interface (execute / batch / close). Used by the weekly ingest cron
+    after migrating chesscope off Turso."""
+
+    def __init__(self, account_id: str, database_id: str, api_token: str):
+        self._url = (
+            f"https://api.cloudflare.com/client/v4/accounts/{account_id}"
+            f"/d1/database/{database_id}/raw"
+        )
+        self._session = requests.Session()
+        self._session.headers.update(
+            {
+                "Authorization": f"Bearer {api_token}",
+                "Content-Type": "application/json",
+            }
+        )
+
+    def execute(
+        self, sql: str, params: Optional[Iterable] = None
+    ) -> D1ResultSet:
+        body = {"sql": sql, "params": list(params) if params else []}
+        return self._post(body)
+
+    def batch(self, statements: list) -> D1ResultSet:
+        body = [{"sql": s.sql, "params": s.args} for s in statements]
+        return self._post(body)
+
+    def close(self) -> None:
+        self._session.close()
+
+    def _post(self, body) -> D1ResultSet:
+        resp = self._session.post(self._url, json=body, timeout=(30, 600))
+        # Surface HTTP-level failures with response body so transient
+        # 429/5xx retry logic in write_batch can see the error message.
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"D1 HTTP {resp.status_code}: {resp.text[:300]}"
+            )
+        data = resp.json()
+        if not data.get("success"):
+            raise RuntimeError(f"D1 error: {data.get('errors')}")
+        # /raw response shape: result is array of per-statement results,
+        # each with .results.columns + .results.rows. We expose the FIRST
+        # statement's rows on the returned ResultSet — callers that only
+        # care about success (batch INSERTs) ignore the return.
+        results = data.get("result") or []
+        if not results:
+            return D1ResultSet([], [])
+        first = results[0]
+        inner = first.get("results") or {}
+        return D1ResultSet(
+            columns=inner.get("columns") or [],
+            rows=inner.get("rows") or [],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -666,11 +736,11 @@ def _is_transient(exc: Exception) -> bool:
     return any(pat in msg for pat in _TRANSIENT_PATTERNS)
 
 
-def write_batch(client: libsql_client.Client, rows: list[GameRow]) -> int:
+def write_batch(client: D1Client, rows: list[GameRow]) -> int:
     if not rows:
         return 0
     statements = [
-        libsql_client.Statement(GAMES_INSERT, row_to_params(r)) for r in rows
+        D1Statement(GAMES_INSERT, row_to_params(r)) for r in rows
     ]
     transient_attempts = 0
     hard_attempts = 0
@@ -772,7 +842,7 @@ def _is_complete_date(s) -> bool:
     return s[:4].isdigit() and s[5:7].isdigit() and s[8:].isdigit()
 
 
-def refresh_players(client: libsql_client.Client) -> None:
+def refresh_players(client: D1Client) -> None:
     print("[chesscope] rebuilding players aggregate…", file=sys.stderr)
     rs = client.execute(
         """
@@ -849,14 +919,14 @@ def refresh_players(client: libsql_client.Client) -> None:
     for i in range(0, len(rows), BATCH_SIZE):
         chunk = rows[i:i + BATCH_SIZE]
         client.batch([
-            libsql_client.Statement(PLAYERS_UPSERT, params) for params in chunk
+            D1Statement(PLAYERS_UPSERT, params) for params in chunk
         ])
         written += len(chunk)
     print(f"[chesscope] players: {written:,} unique slugs upserted",
           file=sys.stderr)
 
 
-def optimize_fts(client: libsql_client.Client) -> None:
+def optimize_fts(client: D1Client) -> None:
     """Defrag the FTS5 indexes after a write batch.
 
     FTS5 stores updates as immutable segments and accumulates them on every
@@ -888,7 +958,7 @@ def optimize_fts(client: libsql_client.Client) -> None:
 
 
 def update_sync_state(
-    client: libsql_client.Client, key: str, value: str
+    client: D1Client, key: str, value: str
 ) -> None:
     client.execute(
         """
@@ -912,7 +982,7 @@ def update_sync_state(
 INGESTED_FILE_KEY_PREFIX = "ingested_file:"
 
 
-def load_ingested_files(client: libsql_client.Client) -> dict[str, str]:
+def load_ingested_files(client: D1Client) -> dict[str, str]:
     """Returns {filename: sha256} for months that have been fully
     ingested before. Robust to a missing sync_state table."""
     try:
@@ -936,7 +1006,7 @@ def load_ingested_files(client: libsql_client.Client) -> dict[str, str]:
 
 
 def mark_file_ingested(
-    client: libsql_client.Client, filename: str, sha256: str
+    client: D1Client, filename: str, sha256: str
 ) -> None:
     update_sync_state(
         client, f"{INGESTED_FILE_KEY_PREFIX}{filename}", sha256
@@ -946,19 +1016,6 @@ def mark_file_ingested(
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-
-
-def turso_http_url(libsql_url: str) -> str:
-    """Force HTTP transport.
-
-    The default `libsql://` scheme makes the Python client attempt a
-    WebSocket handshake (wss://), which modern Turso servers reject with
-    HTTP 505. Hrana-over-HTTPS is exactly the same protocol on the wire
-    and is what the TypeScript client uses too. Rewrite to https:// here
-    to dodge the WS path."""
-    if libsql_url.startswith("libsql://"):
-        return "https://" + libsql_url[len("libsql://"):]
-    return libsql_url
 
 
 def main() -> int:
@@ -1037,21 +1094,34 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    # Connect to Turso (skip in dry-run).
-    client: Optional[libsql_client.Client] = None
+    # Connect to Cloudflare D1 (skip in dry-run). Migrated off Turso on
+    # 2026-05-20. D1 has no Python SDK so we drive it via the REST API
+    # — see D1Client above.
+    client: Optional[D1Client] = None
     if not args.dry_run:
-        turso_url = os.environ.get("TURSO_URL")
-        turso_token = os.environ.get("TURSO_AUTH_TOKEN")
-        if not turso_url or not turso_token:
+        account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+        database_id = os.environ.get("D1_DATABASE_ID")
+        api_token = os.environ.get("CLOUDFLARE_API_TOKEN")
+        missing = [
+            n
+            for n, v in (
+                ("CLOUDFLARE_ACCOUNT_ID", account_id),
+                ("D1_DATABASE_ID", database_id),
+                ("CLOUDFLARE_API_TOKEN", api_token),
+            )
+            if not v
+        ]
+        if missing:
             print(
-                "[chesscope] TURSO_URL and TURSO_AUTH_TOKEN are required "
-                "(use --dry-run to skip).",
+                f"[chesscope] missing required env vars: {', '.join(missing)} "
+                "(use --dry-run to skip)",
                 file=sys.stderr,
             )
             return 2
-        client = libsql_client.create_client_sync(
-            url=turso_http_url(turso_url),
-            auth_token=turso_token,
+        client = D1Client(
+            account_id=account_id,
+            database_id=database_id,
+            api_token=api_token,
         )
 
     # Pre-fetch the checksums map once, used across all months.

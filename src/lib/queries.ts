@@ -58,7 +58,7 @@ export async function searchPlayers(
   limit = 20,
 ): Promise<PlayerHit[]> {
   if (!query.trim()) return [];
-  const db = getDb();
+  const db = await getDb();
   const match = ftsQuery(query);
   const rows = await db.all<{
     slug: string;
@@ -93,7 +93,7 @@ export async function searchGames(
   limit = 50,
 ): Promise<GameHit[]> {
   if (!query.trim()) return [];
-  const db = getDb();
+  const db = await getDb();
   const match = ftsQuery(query);
   const rows = await db.all<{
     id: string;
@@ -132,7 +132,7 @@ export async function searchGames(
  * Fetch the full player record by slug. Returns null if unknown.
  */
 export async function getPlayer(slug: string) {
-  const db = getDb();
+  const db = await getDb();
   const rows = await db
     .select()
     .from(schema.players)
@@ -166,7 +166,7 @@ export async function getPlayerGames(slug: string, limit = 100) {
   const player = await getPlayer(slug);
   if (!player) return [];
 
-  const db = getDb();
+  const db = await getDb();
   type Row = GameHit & {
     white_elo: number | null;
     black_elo: number | null;
@@ -226,7 +226,7 @@ export async function getPlayerGames(slug: string, limit = 100) {
  * pre-render the most-trafficked pages at build time.
  */
 export async function getTopPlayers(limit = 5000) {
-  const db = getDb();
+  const db = await getDb();
   return db
     .select({
       slug: schema.players.slug,
@@ -242,7 +242,7 @@ export async function getTopPlayers(limit = 5000) {
  * Fetch a single game by ID.
  */
 export async function getGame(id: string) {
-  const db = getDb();
+  const db = await getDb();
   const rows = await db
     .select()
     .from(schema.games)
@@ -263,7 +263,7 @@ export async function getGame(id: string) {
  */
 export const getCoverageStats = unstable_cache(
   async () => {
-    const db = getDb();
+    const db = await getDb();
     const [r] = await db.all<{
       games: number;
       players: number;

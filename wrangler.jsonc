@@ -14,10 +14,19 @@
   "vars": {
     "NEXT_TELEMETRY_DISABLED": "1",
   },
-  // Turso credentials are loaded via `wrangler secret put TURSO_URL` and
-  // `wrangler secret put TURSO_AUTH_TOKEN` at deploy time. Do NOT commit
-  // them here, secrets are encrypted at the edge.
-  //
+  // D1 binding for the chesscope database. Provision with
+  //   wrangler d1 create chesscope
+  // and paste the returned database_id below. Worker reads via the
+  // binding directly — no runtime secrets needed (deploy-time
+  // CLOUDFLARE_API_TOKEN scope is what authorizes wrangler to wire
+  // the binding up).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "chesscope",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+    },
+  ],
   // R2 bucket for incremental cache (matches open-next.config.ts). Create
   // with `wrangler r2 bucket create chesscope-cache`.
   "r2_buckets": [

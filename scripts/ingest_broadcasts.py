@@ -162,15 +162,74 @@ class D1Client:
         return self._post(self._raw_url, body, want_rows=True)
 
     def batch(self, statements: list) -> D1ResultSet:
-        # /query accepts array-of-statements for batched execution. The
-        # rows-shape from /query is named-column dicts (not positional
-        # arrays like /raw), but batch callers only care about success —
-        # they don't read .rows from the returned ResultSet.
-        body = [{"sql": s.sql, "params": s.args} for s in statements]
-        return self._post(self._query_url, body, want_rows=False)
+        # D1's REST API doesn't support batched-statement execution
+        # over either endpoint — both /raw and /query 400 on array
+        # bodies. The Worker binding's `db.batch([...])` only works
+        # inside a Worker, not from REST. Workaround: build ONE
+        # multi-row INSERT statement out of the batch by inlining each
+        # statement's args as SQL literals. Assumes all statements in
+        # a batch share the same INSERT template (true for our callers
+        # — write_batch always uses GAMES_INSERT, refresh_players
+        # always uses PLAYERS_UPSERT). One POST per batch instead of
+        # one per row.
+        if not statements:
+            return D1ResultSet([], [])
+        prefix, suffix = self._split_insert(statements[0].sql)
+        tuples = [self._format_tuple(s.args) for s in statements]
+        combined = prefix + ", ".join(tuples) + " " + suffix
+        return self._post(
+            self._raw_url, {"sql": combined, "params": []}, want_rows=False
+        )
 
     def close(self) -> None:
         self._session.close()
+
+    @staticmethod
+    def _split_insert(sql: str):
+        """Split `INSERT INTO t (...) VALUES (?, ...) ON CONFLICT...`
+        into (prefix_through_VALUES_, suffix_after_closing_paren)."""
+        i = sql.upper().find(" VALUES ")
+        if i == -1:
+            raise ValueError(
+                f"Batch SQL must be INSERT…VALUES: {sql[:100]!r}"
+            )
+        after = i + len(" VALUES ")
+        while after < len(sql) and sql[after].isspace():
+            after += 1
+        if after >= len(sql) or sql[after] != "(":
+            raise ValueError(f"Expected '(' after VALUES near {sql[after:after+20]!r}")
+        depth = 0
+        close = -1
+        for j in range(after, len(sql)):
+            c = sql[j]
+            if c == "(":
+                depth += 1
+            elif c == ")":
+                depth -= 1
+                if depth == 0:
+                    close = j
+                    break
+        if close == -1:
+            raise ValueError("Unbalanced parens in VALUES tuple")
+        # prefix ends just before the '(' so we can splice in our own
+        # multi-row tuples. suffix is everything after the matching ')'.
+        return sql[:after], sql[close + 1:].lstrip()
+
+    @staticmethod
+    def _format_tuple(args) -> str:
+        return "(" + ", ".join(D1Client._sql_literal(a) for a in args) + ")"
+
+    @staticmethod
+    def _sql_literal(v) -> str:
+        if v is None:
+            return "NULL"
+        if isinstance(v, bool):
+            return "1" if v else "0"
+        if isinstance(v, (int, float)):
+            return str(v)
+        # Strings: escape ' by doubling. Our data is from PGN, no DDL
+        # injection concerns — but we still want valid SQL.
+        return "'" + str(v).replace("'", "''") + "'"
 
     def _post(self, url: str, body, want_rows: bool) -> D1ResultSet:
         resp = self._session.post(url, json=body, timeout=(30, 600))

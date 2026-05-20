@@ -24,7 +24,7 @@
     {
       "binding": "DB",
       "database_name": "chesscope",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "fd3e496c-3bc9-4a70-adb2-e27f40321d7c",
     },
   ],
   // R2 bucket for incremental cache (matches open-next.config.ts). Create

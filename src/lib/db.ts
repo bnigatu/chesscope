@@ -32,6 +32,14 @@ export function getDb(): LibSQLDatabase<typeof schema> {
   const url = process.env.TURSO_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
 
+  // Diagnostic: surface env-var state to wrangler tail so we can tell
+  // missing-secret vs auth-failure vs network-failure apart without
+  // having to ship a separate debug endpoint.
+  console.log(
+    `[db] init: TURSO_URL=${url ? "set" : "MISSING"} ` +
+      `authToken=${authToken ? `set(len=${authToken.length})` : "MISSING"}`
+  );
+
   if (!url) {
     throw new Error(
       "TURSO_URL is not set. Add it via `wrangler secret put TURSO_URL`."

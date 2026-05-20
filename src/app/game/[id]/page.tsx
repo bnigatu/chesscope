@@ -17,7 +17,15 @@ export async function generateMetadata({
   params: Params;
 }): Promise<Metadata> {
   const { id } = await params;
-  const game = await getGame(id);
+  // See player/[slug]/page.tsx — generateMetadata errors bypass the
+  // App Router error boundary, so we swallow here and let the page
+  // body below throw into error.tsx (themed Adjournment fallback).
+  let game: Awaited<ReturnType<typeof getGame>>;
+  try {
+    game = await getGame(id);
+  } catch {
+    return { title: "Game" };
+  }
   if (!game) return { title: "Game not found" };
   const eventTxt = game.event ?? "Broadcast game";
   const dateTxt = formatPgnDate(game.date);

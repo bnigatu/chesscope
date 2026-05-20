@@ -30,7 +30,17 @@ export async function generateMetadata({
   params: Params;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const player = await getPlayer(slug);
+  // generateMetadata errors don't get caught by error.tsx in App Router —
+  // they trigger Next's raw 500 page, bypassing the themed boundary. So
+  // we swallow DB errors here and emit a fallback title; the actual
+  // PlayerPage below still throws and IS caught by error.tsx, giving
+  // the user the themed "Adjournment ½–½" page.
+  let player: Awaited<ReturnType<typeof getPlayer>>;
+  try {
+    player = await getPlayer(slug);
+  } catch {
+    return { title: "Player" };
+  }
   if (!player) return { title: "Player not found" };
   const gameCountTxt = player.gameCount.toLocaleString();
   const titleSuffix = `${gameCountTxt} broadcast game${

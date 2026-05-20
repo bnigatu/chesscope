@@ -137,10 +137,16 @@ class D1Client:
     after migrating chesscope off Turso."""
 
     def __init__(self, account_id: str, database_id: str, api_token: str):
-        self._url = (
+        base = (
             f"https://api.cloudflare.com/client/v4/accounts/{account_id}"
-            f"/d1/database/{database_id}/raw"
+            f"/d1/database/{database_id}"
         )
+        # /raw returns positional rows (we need this for execute() so the
+        # rest of the script can keep doing row[N] positional access).
+        # /query accepts an array body for batched statements; /raw does
+        # NOT (it 400s with "Expected object, received array").
+        self._raw_url = f"{base}/raw"
+        self._query_url = f"{base}/query"
         self._session = requests.Session()
         self._session.headers.update(
             {
@@ -153,17 +159,21 @@ class D1Client:
         self, sql: str, params: Optional[Iterable] = None
     ) -> D1ResultSet:
         body = {"sql": sql, "params": list(params) if params else []}
-        return self._post(body)
+        return self._post(self._raw_url, body, want_rows=True)
 
     def batch(self, statements: list) -> D1ResultSet:
+        # /query accepts array-of-statements for batched execution. The
+        # rows-shape from /query is named-column dicts (not positional
+        # arrays like /raw), but batch callers only care about success —
+        # they don't read .rows from the returned ResultSet.
         body = [{"sql": s.sql, "params": s.args} for s in statements]
-        return self._post(body)
+        return self._post(self._query_url, body, want_rows=False)
 
     def close(self) -> None:
         self._session.close()
 
-    def _post(self, body) -> D1ResultSet:
-        resp = self._session.post(self._url, json=body, timeout=(30, 600))
+    def _post(self, url: str, body, want_rows: bool) -> D1ResultSet:
+        resp = self._session.post(url, json=body, timeout=(30, 600))
         # Surface HTTP-level failures with response body so transient
         # 429/5xx retry logic in write_batch can see the error message.
         if resp.status_code >= 400:
@@ -173,10 +183,12 @@ class D1Client:
         data = resp.json()
         if not data.get("success"):
             raise RuntimeError(f"D1 error: {data.get('errors')}")
-        # /raw response shape: result is array of per-statement results,
-        # each with .results.columns + .results.rows. We expose the FIRST
-        # statement's rows on the returned ResultSet — callers that only
-        # care about success (batch INSERTs) ignore the return.
+        if not want_rows:
+            return D1ResultSet([], [])
+        # /raw shape: result is array of per-statement results, each with
+        # .results.columns + .results.rows (positional arrays). Surface
+        # the first statement's rows — execute() is single-statement so
+        # there's only ever one.
         results = data.get("result") or []
         if not results:
             return D1ResultSet([], [])

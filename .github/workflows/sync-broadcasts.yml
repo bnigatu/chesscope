@@ -17,10 +17,21 @@ on:
         type: boolean
         default: false
 
+# One ingest at a time. The self-hosted runner is a single job slot, so this group stops a manual
+# dispatch (or a second scheduled tick) from racing or silently queueing behind a running job.
+# cancel-in-progress is false so a long resumable backfill is never cancelled mid-run; the job's
+# timeout-minutes bounds how long a hung run can hold the slot.
+concurrency:
+  group: sync-broadcasts
+  cancel-in-progress: false
+
 jobs:
   sync:
     name: Ingest broadcast PGN dump
-    runs-on: ubuntu-latest
+    # Runner chosen by the RUNNER_LABELS repo variable (see tooling/self-hosted-runner/README.md):
+    # ["self-hosted","linux","x64"] runs on the local Docker runner (the primary — no GitHub-hosted
+    # minutes consumed), unset/empty falls back to GitHub-hosted ubuntu-latest.
+    runs-on: ${{ fromJSON(vars.RUNNER_LABELS || '"ubuntu-latest"') }}
     # Stays at 360 (the GitHub max) so the first few runs after
     # ingest_broadcasts.py started recording per-month SHA can chew
     # through the historical backlog. Each completed month is
@@ -95,3 +106,11 @@ jobs:
         run: |
           node node_modules/@opennextjs/cloudflare/dist/cli/index.js build
           node node_modules/@opennextjs/cloudflare/dist/cli/index.js deploy
+
+      # The self-hosted runner's _work persists across runs (unlike a fresh GitHub-hosted VM), and
+      # ingest_broadcasts.py only deletes ./cache on the normal completion path (not in a finally).
+      # Prune it here with always() so a timed-out or failed run doesn't orphan ~150 MB .pgn.zst
+      # dumps that would accumulate on the host disk until steps fail with ENOSPC. No-op on hosted.
+      - name: Prune ingest download cache
+        if: always()
+        run: rm -rf ./cache

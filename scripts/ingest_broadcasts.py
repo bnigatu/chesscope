@@ -90,12 +90,18 @@ DOWNLOAD_CHUNK_SIZE = 1 << 20      # 1 MiB
 DOWNLOAD_TIMEOUT = (15, 120)        # (connect, read) seconds
 DOWNLOAD_MAX_RETRIES = 8
 
-# D1 REST API limits each request body to ~1 MB and each batch to ~50
-# statements. We send statement-per-array-element batches at this size;
-# 500 INSERTs of metadata-only rows fits comfortably. If --store-pgn
-# is ever turned on the script will need a smaller value or chunked
-# multi-batch flushes.
+# How many parsed rows accumulate before we flush them to D1. This only
+# bounds the *row count* handed to write_batch; the actual guard against
+# oversized SQL is D1_MAX_SQL_BYTES below, applied inside D1Client.batch.
 BATCH_SIZE = 500
+# D1 rejects any single SQL statement longer than ~100 KB with
+# SQLITE_TOOBIG (error code 7500). We inline batch rows as literals into
+# one multi-row INSERT (D1Client.batch), so what matters is the serialized
+# byte size, not the row count — 500 metadata rows already blow past the
+# cap. batch() packs tuples into sub-statements each under this budget and
+# POSTs them separately. Kept well under 100 KB to leave headroom for the
+# INSERT prefix/suffix envelope and UTF-8 multibyte player names.
+D1_MAX_SQL_BYTES = 90_000
 PROGRESS_EVERY = 5_000
 
 # ---------------------------------------------------------------------------
@@ -165,19 +171,45 @@ class D1Client:
         # D1's REST API doesn't support batched-statement execution
         # over either endpoint — both /raw and /query 400 on array
         # bodies. The Worker binding's `db.batch([...])` only works
-        # inside a Worker, not from REST. Workaround: build ONE
-        # multi-row INSERT statement out of the batch by inlining each
-        # statement's args as SQL literals. Assumes all statements in
-        # a batch share the same INSERT template (true for our callers
-        # — write_batch always uses GAMES_INSERT, refresh_players
-        # always uses PLAYERS_UPSERT). One POST per batch instead of
-        # one per row.
+        # inside a Worker, not from REST. Workaround: build multi-row
+        # INSERT statements out of the batch by inlining each statement's
+        # args as SQL literals. Assumes all statements in a batch share
+        # the same INSERT template (true for our callers — write_batch
+        # always uses GAMES_INSERT, refresh_players always uses
+        # PLAYERS_UPSERT).
+        #
+        # D1 rejects any single statement over ~100 KB (SQLITE_TOOBIG,
+        # code 7500), and a fixed row count doesn't bound the byte size,
+        # so pack the tuples into as-large-as-safe sub-statements
+        # (<= D1_MAX_SQL_BYTES) and POST each. The INSERTs are idempotent
+        # upserts (ON CONFLICT), so a retry that re-sends an already-
+        # applied sub-statement is harmless.
         if not statements:
             return D1ResultSet([], [])
         prefix, suffix = self._split_insert(statements[0].sql)
-        tuples = [self._format_tuple(s.args) for s in statements]
+        # Fixed overhead every combined statement carries no matter how
+        # many tuples it holds: prefix + " " + suffix.
+        envelope = len(prefix.encode("utf-8")) + 1 + len(suffix.encode("utf-8"))
+        chunk: list[str] = []
+        chunk_bytes = 0
+        for stmt in statements:
+            tup = self._format_tuple(stmt.args)
+            tup_bytes = len(tup.encode("utf-8"))
+            sep = 2 if chunk else 0  # ", " joins consecutive tuples
+            if chunk and envelope + chunk_bytes + sep + tup_bytes > D1_MAX_SQL_BYTES:
+                self._flush_tuples(prefix, suffix, chunk)
+                chunk = []
+                chunk_bytes = 0
+                sep = 0
+            chunk.append(tup)
+            chunk_bytes += sep + tup_bytes
+        if chunk:
+            self._flush_tuples(prefix, suffix, chunk)
+        return D1ResultSet([], [])
+
+    def _flush_tuples(self, prefix: str, suffix: str, tuples: list) -> None:
         combined = prefix + ", ".join(tuples) + " " + suffix
-        return self._post(
+        self._post(
             self._raw_url, {"sql": combined, "params": []}, want_rows=False
         )
 

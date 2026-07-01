@@ -20,9 +20,12 @@ ARG RUNNER_VERSION=2.335.1
 # Base tools plus the runner agent and its dependencies. installdependencies.sh pulls libicu
 # and friends; we run it as root at build time so no sudo is needed at run time. zstd is added
 # so actions/cache (cache:pip, cache:npm) uses zstd instead of the slower gzip fallback, matching
-# GitHub-hosted runners.
+# GitHub-hosted runners. lsb-release provides the `lsb_release` binary that actions/setup-python
+# and actions/setup-node shell out to for OS detection (used in the cache key); GitHub-hosted
+# images set the ImageOS env so they skip it, but self-hosted runners don't, so without this the
+# "Set up Python" step fails with "Unable to locate executable file: lsb_release".
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl ca-certificates git jq sudo zstd \
+  && apt-get install -y --no-install-recommends curl ca-certificates git jq sudo zstd lsb-release \
   && useradd -m runner \
   && mkdir -p /actions-runner \
   && chown runner:runner /actions-runner \

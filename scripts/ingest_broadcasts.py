@@ -102,6 +102,12 @@ BATCH_SIZE = 500
 # POSTs them separately. Kept well under 100 KB to leave headroom for the
 # INSERT prefix/suffix envelope and UTF-8 multibyte player names.
 D1_MAX_SQL_BYTES = 90_000
+# refresh_players reads ~2 rows per game (white + black) across the whole games
+# table. Pulling that in ONE SELECT started returning HTTP 503 once the table
+# passed ~260k games (D1 kills a query that scans/returns too much), so we
+# keyset-paginate by the `id` primary key at this page size — each query is then
+# small, index-backed, and well under D1's per-query budget.
+PLAYERS_SCAN_PAGE = 20_000
 PROGRESS_EVERY = 5_000
 
 # ---------------------------------------------------------------------------
@@ -827,6 +833,11 @@ _TRANSIENT_PATTERNS = (
     "Connection reset by peer",
     "Server disconnected",
     "Cannot connect to host",
+    # D1 briefly 503s a query it can't serve at that instant (overload /
+    # replica catch-up). Retryable — and distinct from SQLITE_TOOBIG, which
+    # is NOT transient and is prevented by chunking (writes) / paging (reads).
+    "D1 HTTP 503",
+    "Service unavailable",
 )
 # Backoff schedule for transient errors, in seconds. 6 attempts; total
 # worst-case wait ~7.5s vs the old 6s but with much higher hit-rate
@@ -945,29 +956,72 @@ def _is_complete_date(s) -> bool:
     return s[:4].isdigit() and s[5:7].isdigit() and s[8:].isdigit()
 
 
+def _execute_retrying(client: D1Client, sql: str, params: list) -> D1ResultSet:
+    """`client.execute` with the same transient-retry policy write_batch uses.
+    The paginated players scan issues many queries; a transient D1 503 on any
+    one of them shouldn't fail the whole run."""
+    attempts = 0
+    while True:
+        try:
+            return client.execute(sql, params)
+        except Exception as exc:  # noqa: BLE001
+            if _is_transient(exc) and attempts < len(_TRANSIENT_BACKOFFS):
+                if attempts == 0:
+                    print(
+                        f"[chesscope] players query transient ({exc!r}); "
+                        f"retrying with backoff",
+                        file=sys.stderr,
+                    )
+                time.sleep(_TRANSIENT_BACKOFFS[attempts])
+                attempts += 1
+                continue
+            raise
+
+
+def _iter_player_game_rows(client: D1Client):
+    """Yield one (name, fide, title, elo, date, timestamp, w, d, l) row per
+    player-appearance (white, then black) across every game — the exact rows
+    the old single UNION-ALL SELECT produced, but keyset-paginated by the `id`
+    primary key so no single D1 query returns the whole ~2-per-game result set.
+    That one SELECT began 503-ing ("Service unavailable") once the games table
+    passed ~260k rows; each page here is bounded and index-backed. The result
+    literals per colour are hard-coded (not user data); only the cursor and
+    page size are bound params."""
+    halves = (
+        ("white", "white_fide_id", "white_title", "white_elo", ("1-0", "1/2-1/2", "0-1")),
+        ("black", "black_fide_id", "black_title", "black_elo", ("0-1", "1/2-1/2", "1-0")),
+    )
+    for col, fide, title, elo, (wres, dres, lres) in halves:
+        cursor = ""  # empty string sorts before every real id
+        while True:
+            rs = _execute_retrying(
+                client,
+                f"""
+                SELECT id,
+                       {col} AS name, {fide} AS fide, {title} AS title,
+                       {elo} AS elo, date, timestamp,
+                       CASE result WHEN '{wres}' THEN 1 ELSE 0 END AS w,
+                       CASE result WHEN '{dres}' THEN 1 ELSE 0 END AS d,
+                       CASE result WHEN '{lres}' THEN 1 ELSE 0 END AS l
+                  FROM games
+                 WHERE id > ? AND {col} IS NOT NULL AND {col} != '?'
+                 ORDER BY id
+                 LIMIT ?
+                """,
+                [cursor, PLAYERS_SCAN_PAGE],
+            )
+            page = rs.rows
+            if not page:
+                break
+            for r in page:
+                yield r[1:]  # drop the id cursor column
+            cursor = page[-1][0]
+
+
 def refresh_players(client: D1Client) -> None:
     print("[chesscope] rebuilding players aggregate…", file=sys.stderr)
-    rs = client.execute(
-        """
-        SELECT white AS name, white_fide_id AS fide, white_title AS title,
-               white_elo AS elo, date, timestamp,
-               CASE result WHEN '1-0' THEN 1 ELSE 0 END AS w,
-               CASE result WHEN '1/2-1/2' THEN 1 ELSE 0 END AS d,
-               CASE result WHEN '0-1' THEN 1 ELSE 0 END AS l
-          FROM games
-         WHERE white IS NOT NULL AND white != '?'
-        UNION ALL
-        SELECT black AS name, black_fide_id AS fide, black_title AS title,
-               black_elo AS elo, date, timestamp,
-               CASE result WHEN '0-1' THEN 1 ELSE 0 END AS w,
-               CASE result WHEN '1/2-1/2' THEN 1 ELSE 0 END AS d,
-               CASE result WHEN '1-0' THEN 1 ELSE 0 END AS l
-          FROM games
-         WHERE black IS NOT NULL AND black != '?'
-        """
-    )
     agg: dict[str, dict] = {}
-    for row in rs.rows:
+    for row in _iter_player_game_rows(client):
         name = row[0]
         slug = slug_for(name)
         if not slug:

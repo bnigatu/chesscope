@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cx } from "@/lib/utils";
 import {
@@ -13,6 +13,37 @@ import { deserializeTree } from "@/lib/repertoire/save-load";
 import { putUploadedTree } from "@/lib/repertoire/cache";
 
 const PGN_SESSION_KEY = "chesscope.pgnSession";
+// Building navigates to /?built=1&…, which unmounts this form; coming back
+// mounts a fresh one. Persist the choices in localStorage (not session —
+// usernames are worth keeping across visits; not IDB — this is <1 KB) so
+// "back → tweak one thing → rebuild" doesn't mean retyping everything.
+// Versioned key: bump if the saved shape ever changes incompatibly.
+const PREFS_KEY = "chesscope.sourcePicker.v1";
+
+type SavedPrefs = {
+  enabled?: { lichess?: boolean; chesscom?: boolean; pgn?: boolean };
+  usernames?: { lichess?: string; chesscom?: string };
+  pgnPlayer?: string;
+  filters?: Partial<RepertoireFilters>;
+};
+
+/** True when any collapsed-by-default advanced filter deviates from the
+ * defaults — used to auto-expand the section on restore so restored
+ * values are never invisibly active. */
+function advancedDiffers(f: RepertoireFilters): boolean {
+  return (
+    f.mode !== DEFAULT_FILTERS.mode ||
+    Object.entries(f.timeControls).some(
+      ([k, v]) => DEFAULT_FILTERS.timeControls[k as TimeControlKey] !== v
+    ) ||
+    f.fromDate !== DEFAULT_FILTERS.fromDate ||
+    f.toDate !== DEFAULT_FILTERS.toDate ||
+    f.minRating !== DEFAULT_FILTERS.minRating ||
+    f.maxRating !== DEFAULT_FILTERS.maxRating ||
+    f.opponent.trim() !== DEFAULT_FILTERS.opponent ||
+    f.limit !== DEFAULT_FILTERS.limit
+  );
+}
 
 const SOURCES = [
   { id: "lichess" as const, label: "Lichess" },
@@ -44,6 +75,80 @@ export function SourcePickerForm() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const treeFileRef = useRef<HTMLInputElement | null>(null);
+  const pgnFileRef = useRef<HTMLInputElement | null>(null);
+  // Persist only after the restore effect has run. This MUST be state,
+  // not a ref: both effects run in the same mount commit, and the persist
+  // effect's first pass closes over the pre-restore default values. A ref
+  // flipped synchronously inside the restore effect reads true in that
+  // same pass, so the defaults would overwrite the saved prefs on every
+  // remount (e.g. navigating back from the built tree) — with state, the
+  // first pass still sees false and skips, and the write happens on the
+  // next render when the restored values are actually in `enabled`/etc.
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore saved choices on mount. Deliberately NOT in the useState
+  // initializers: this component is server-rendered, and reading
+  // localStorage during the initial render makes the client render
+  // differ from the server HTML (hydration mismatch).
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PREFS_KEY);
+      if (raw) {
+        const saved: SavedPrefs = JSON.parse(raw);
+        setEnabled((p) => ({ ...p, ...saved.enabled }));
+        setUsernames((p) => ({ ...p, ...saved.usernames }));
+        if (typeof saved.pgnPlayer === "string") setPgnPlayer(saved.pgnPlayer);
+        // Merge over the defaults so prefs saved before a future filter
+        // field is added still load (missing keys fall back to default).
+        const restored: RepertoireFilters = {
+          ...DEFAULT_FILTERS,
+          ...saved.filters,
+          timeControls: {
+            ...DEFAULT_FILTERS.timeControls,
+            ...saved.filters?.timeControls,
+          },
+        };
+        setFilters(restored);
+        if (advancedDiffers(restored)) setAdvancedOpen(true);
+      }
+    } catch {
+      // Corrupt JSON or storage unavailable (private browsing) — start
+      // from defaults; the next successful save overwrites the bad blob.
+    }
+    setHydrated(true);
+  }, []);
+
+  // Save on every change. The payload is <1 KB, so no debounce needed.
+  // The pgn File handle itself can't be persisted (not serializable);
+  // we keep the checkbox + player name and the user re-picks the file.
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const prefs: SavedPrefs = { enabled, usernames, pgnPlayer, filters };
+      window.localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch {
+      // Storage full or blocked — the form still works, it just won't
+      // remember. Not worth surfacing to the user.
+    }
+  }, [hydrated, enabled, usernames, pgnPlayer, filters]);
+
+  function resetAll() {
+    setEnabled({ lichess: true, chesscom: true, pgn: false });
+    setUsernames({ lichess: "", chesscom: "" });
+    setPgnFile(null);
+    setPgnPlayer("");
+    setFilters(DEFAULT_FILTERS);
+    setAdvancedOpen(false);
+    setErr(null);
+    // Clear the native input too, so re-picking the same file after a
+    // reset still fires onChange.
+    if (pgnFileRef.current) pgnFileRef.current.value = "";
+    try {
+      window.localStorage.removeItem(PREFS_KEY);
+    } catch {
+      // Nothing to clean up if storage is unavailable.
+    }
+  }
 
   function setFilter<K extends keyof RepertoireFilters>(
     k: K,
@@ -142,6 +247,18 @@ export function SourcePickerForm() {
 
   return (
     <form onSubmit={build} className="space-y-6">
+      {/* The form remembers its last state (localStorage); this is the
+          escape hatch for starting clean. */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={resetAll}
+          className="text-xs text-brass-light hover:underline font-mono uppercase tracking-[.18em]"
+        >
+          ↺ Reset form
+        </button>
+      </div>
+
       {/* Sources */}
       <Section title="Sources">
         <div className="space-y-2">
@@ -209,6 +326,7 @@ export function SourcePickerForm() {
               >
                 {pgnFile ? pgnFile.name : "Click to choose a .pgn file"}
                 <input
+                  ref={pgnFileRef}
                   type="file"
                   accept=".pgn,application/x-chess-pgn,text/plain"
                   className="hidden"

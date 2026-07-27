@@ -233,18 +233,34 @@ implementation is in `scripts/ingest_broadcasts.py:slug_for()`.
 
 ### Aesthetic, important context, not optional decoration
 
-The visual brief was "tournament hall after hours." This was a deliberate
-choice and the user signed off on it. **Don't redesign without asking.**
+The visual brief is "tournament hall after hours." **Don't redesign
+without asking.** Re-skinned 2026-07 ("Ember") at the user's request
+after users called the old brass/cream theme dull and too
+Lichess-adjacent; the user chose every direction from interactive
+preview benches.
 
-- **Palette:** `ink` (deep blacks 900-500), `parchment` (cream 50-300),
-  `oxblood` (dark red, used sparingly for losses/accents), `brass`
-  (warm gold, used for primary accents and the wordmark).
-- **Type:** Fraunces (display serif, italic for emphasis), Inter Tight
-  (body), JetBrains Mono (numbers, FIDE IDs, dates, anything with
-  tabular feel).
-- **Atmosphere:** Subtle radial gradients in oxblood and brass under the
-  content, plus a 3% opacity SVG noise overlay. Combined effect is
-  "warm paper texture" without being noisy.
+- **Palette (Ember, 2026-07):** dark mode keeps `ink` (deep blacks
+  900-500) + `parchment` (cream 50-300); light mode is modern-neutral
+  (cool near-white page, pure-white cards — NOT the old cream). The
+  accent token is still NAMED `brass` but its value is ember orange
+  (dark `#f0895a`, light `#ad4618` — AA on white; the old gold failed
+  2.6:1). `oxblood` is the loss/danger family, lifted for AA in dark.
+  ALL palette tokens (incl. brass/oxblood) are CSS vars in globals.css
+  flipped by `[data-theme="light"]`; tailwind.config maps them.
+- **Type (unchanged):** Fraunces (display serif, italic for emphasis),
+  Inter Tight (body), JetBrains Mono (numbers, FIDE IDs, dates).
+- **Atmosphere:** radial accent gradients + 3% noise overlay, now with
+  a 48s "lamplight drift" animation (reduced-motion-safe).
+- **Hero:** the homepage board auto-replays Morphy's Opera Game (1858,
+  public domain) via `hero-board.tsx` — motion stays inside the board,
+  pauses on hover/hidden tab, static under reduced motion.
+- **Brand mark:** `ScopeMark` in `knight-mark.tsx` — a pawn rising out
+  of a scope lens with side/bottom reticle stubs, chosen by the user
+  from five candidates. True vector, currentColor. The favicon set in
+  /public is rasterized from public/favicon.svg (1.5 KB; the old one
+  was a 1.66 MB raster-in-SVG). The eval bar uses ABSOLUTE chess
+  colors (white/near-black hex), never theme tokens — white's
+  advantage must look white in both themes.
 - **Result chips and stats** use slashed-zero / tabular-nums. Chess
   notation uses en-dash and ½ for half points (`1\u20130`, `\u00bd\u2013\u00bd`).
 - **Custom 404** is "1–0 / The page resigned." It's on-brand. Keep it.

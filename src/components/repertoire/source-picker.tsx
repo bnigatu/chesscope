@@ -246,7 +246,7 @@ export function SourcePickerForm() {
     (enabled.pgn && pgnFile && pgnPlayer.trim());
 
   return (
-    <form onSubmit={build} className="space-y-6">
+    <form onSubmit={build} className="card p-5 sm:p-6 space-y-6">
       {/* The form remembers its last state (localStorage); this is the
           escape hatch for starting clean. */}
       <div className="flex justify-end">
@@ -267,7 +267,7 @@ export function SourcePickerForm() {
               key={s.id}
               className={cx(
                 "flex items-center gap-3 px-3 py-2",
-                "bg-ink-800/60 border border-parchment-50/8 rounded-sm"
+                "bg-ink-700/60 border border-parchment-50/15 rounded-sm"
               )}
             >
               <input
@@ -300,7 +300,7 @@ export function SourcePickerForm() {
           <div
             className={cx(
               "flex flex-col gap-2 px-3 py-2",
-              "bg-ink-800/60 border border-parchment-50/8 rounded-sm"
+              "bg-ink-700/60 border border-parchment-50/15 rounded-sm"
             )}
           >
             <div className="flex items-center gap-3">
@@ -380,7 +380,7 @@ export function SourcePickerForm() {
         <div
           className={cx(
             "grid grid-cols-2 gap-2 p-1",
-            "bg-ink-800/60 border border-parchment-50/8 rounded-sm"
+            "bg-ink-700/60 border border-parchment-50/15 rounded-sm"
           )}
         >
           {(["white", "black"] as const).map((c) => (
@@ -391,10 +391,15 @@ export function SourcePickerForm() {
               className={cx(
                 "px-3 py-2 text-sm capitalize rounded-sm transition-colors",
                 "font-mono uppercase tracking-[.18em]",
+                // Selected chips use ABSOLUTE chess colors, not theme
+                // tokens: "White" must look white and "Black" black in
+                // BOTH site themes (tokens invert in light mode, which
+                // rendered the White pick as a black chip — same class
+                // of bug as the old eval bar).
                 filters.color === c
                   ? c === "white"
-                    ? "bg-parchment-50 text-ink-900"
-                    : "bg-ink-900 text-parchment-50 border border-parchment-50/30"
+                    ? "bg-[#f5efe2] text-[#1f2024] border border-[#1f2024]/25"
+                    : "bg-[#1f2024] text-[#f5efe2] border border-[#f5efe2]/30"
                   : "text-parchment-300/60 hover:text-parchment-100"
               )}
             >
@@ -443,7 +448,7 @@ export function SourcePickerForm() {
                   key={t.id}
                   className={cx(
                     "flex items-center gap-2 px-2 py-1.5",
-                    "bg-ink-800/60 border border-parchment-50/8 rounded-sm",
+                    "bg-ink-700/60 border border-parchment-50/15 rounded-sm",
                     "text-sm text-parchment-100/85"
                   )}
                 >
@@ -579,7 +584,7 @@ function Pill({
         "px-3 py-2 text-sm rounded-sm transition-colors capitalize",
         active
           ? "bg-brass/20 text-parchment-50 border border-brass/50"
-          : "bg-ink-800/60 text-parchment-100/70 border border-parchment-50/8 hover:text-parchment-100"
+          : "bg-ink-700/60 text-parchment-100/70 border border-parchment-50/15 hover:text-parchment-100"
       )}
     >
       {children}

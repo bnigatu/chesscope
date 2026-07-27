@@ -96,7 +96,7 @@ export function SettingsModal({
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-parchment-50/8">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-parchment-50/15">
           <h2
             id="settings-modal-title"
             className="font-mono text-[11px] uppercase tracking-[.25em] text-brass"
@@ -121,7 +121,7 @@ export function SettingsModal({
           <nav
             role="tablist"
             aria-label="Settings sections"
-            className="w-32 sm:w-40 shrink-0 border-r border-parchment-50/8 bg-ink-900/40 py-2"
+            className="w-32 sm:w-40 shrink-0 border-r border-parchment-50/15 bg-ink-900/40 py-2"
           >
             {TABS.map((t) => {
               const active = t.id === tab;
@@ -431,7 +431,7 @@ function ToggleRow({
           "border transition-colors",
           checked
             ? "bg-brass/40 border-brass/60"
-            : "bg-parchment-50/8 border-parchment-50/15"
+            : "bg-parchment-50/15 border-parchment-50/15"
         )}
       >
         <span

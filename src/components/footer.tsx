@@ -3,7 +3,7 @@ import { Wordmark } from "./knight-mark";
 
 export function Footer() {
   return (
-    <footer className="mt-8 border-t border-parchment-50/8">
+    <footer className="mt-8 border-t border-parchment-50/15">
       <div className="container-wide py-5">
         {/* 4 columns so Donate gets its own slot — keeps the footer
             short enough to stay visible below the explorer board. */}

@@ -4,7 +4,7 @@ import { ThemeToggle } from "./theme-toggle";
 
 export function Header() {
   return (
-    <header className="border-b border-parchment-50/8">
+    <header className="border-b border-parchment-50/15">
       <div className="container-wide flex items-center justify-between h-16">
         <Link href="/" aria-label="Chesscope home" className="group">
           <Wordmark className="text-lg group-hover:text-brass-light transition-colors" />

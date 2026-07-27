@@ -128,7 +128,7 @@ export default async function PlayerPage({ params }: { params: Params }) {
       </div>
 
       <article className="container-narrow mt-8 animate-rise">
-        <header className="space-y-4 pb-8 border-b border-parchment-50/8">
+        <header className="space-y-4 pb-8 border-b border-parchment-50/15">
           {player.title && (
             <p className="font-mono text-[11px] uppercase tracking-[.3em] text-brass">
               {expandTitle(player.title)}

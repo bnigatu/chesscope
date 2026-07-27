@@ -1001,7 +1001,7 @@ function Progress({
     <div
       className={cx(
         "flex items-center justify-between gap-3 px-3 py-2",
-        "border border-parchment-50/8 rounded-sm bg-ink-800/60",
+        "border border-parchment-50/15 rounded-sm bg-ink-800/60",
         "text-xs font-mono flex-wrap"
       )}
     >

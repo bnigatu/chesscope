@@ -9,7 +9,7 @@ export function PlayerResults({ players }: { players: PlayerHit[] }) {
       <h2 className="font-display text-xs text-brass uppercase tracking-[.25em]">
         Players
       </h2>
-      <ul className="divide-y divide-parchment-50/8">
+      <ul className="divide-y divide-parchment-50/15">
         {players.map((p) => (
           <li key={p.slug}>
             <Link
@@ -61,7 +61,7 @@ export function GameResults({
       </h2>
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="text-left text-parchment-300/50 text-[11px] uppercase tracking-[.18em] border-b border-parchment-50/8">
+          <thead className="text-left text-parchment-300/50 text-[11px] uppercase tracking-[.18em] border-b border-parchment-50/15">
             <tr>
               <th className="px-4 py-3 font-normal">Date</th>
               <th className="px-4 py-3 font-normal">White</th>

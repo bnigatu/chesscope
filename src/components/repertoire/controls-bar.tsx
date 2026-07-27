@@ -49,7 +49,7 @@ export function ControlsBar(handlers: Partial<ControlHandlers> = {}) {
       aria-label="Board controls"
       className={cx(
         "flex items-stretch gap-0.5",
-        "bg-ink-800/80 border border-parchment-50/8 rounded-sm",
+        "bg-ink-800/80 border border-parchment-50/15 rounded-sm",
         "p-1 mt-3"
       )}
     >

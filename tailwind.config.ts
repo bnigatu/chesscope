@@ -27,21 +27,22 @@ const config: Config = {
           300: "rgb(var(--parchment-300) / <alpha-value>)",
         },
         oxblood: {
-          // Same hex in both themes — deep red passes AA on both cream
-          // (7.5:1) and dark (8:1).
-          DEFAULT: "#7a1e22",
-          light: "#9a2c30",
-          dark: "#5c1418",
+          // Loss/danger family, var-backed so it flips per theme like the
+          // surfaces (dark: lifted reds readable on ink; light: deep red
+          // that clears AA on white). Values live in globals.css.
+          DEFAULT: "rgb(var(--oxblood) / <alpha-value>)",
+          light: "rgb(var(--oxblood-light) / <alpha-value>)",
+          dark: "rgb(var(--oxblood-dark) / <alpha-value>)",
         },
         brass: {
-          // brass DEFAULT and brass-dark are literal hex (used at low alpha
-          // for borders / chrome). brass-light flips per theme via CSS var:
-          // dark-mode #d4ae5e (warm light), light-mode #8c6d33 (passes AA on
-          // cream). Components keep using `text-brass-light` for emphasis
-          // text — the resolved color changes with the theme.
-          DEFAULT: "#b8924a",
+          // Accent family — ember orange since the 2026-07 reskin (the
+          // token keeps its historical "brass" name to avoid touching 28
+          // files). All three tiers are var-backed and flip per theme:
+          // dark mode gets bright ember on ink, light mode gets deep
+          // ember that passes AA on white. Values live in globals.css.
+          DEFAULT: "rgb(var(--brass) / <alpha-value>)",
           light: "rgb(var(--brass-light) / <alpha-value>)",
-          dark: "#8c6d33",
+          dark: "rgb(var(--brass-dark) / <alpha-value>)",
         },
         // Chess.com tone — only the board surface and its overlays use these.
         // Surrounding chrome stays ink/parchment/brass.
@@ -61,9 +62,12 @@ const config: Config = {
         mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
       },
       boxShadow: {
-        plate: "0 1px 0 rgba(245,239,226,.04), 0 0 0 1px rgba(245,239,226,.06)",
-        plateHover:
-          "0 1px 0 rgba(245,239,226,.06), 0 0 0 1px rgba(184,146,74,.4)",
+        // Var-backed so each theme defines its own card treatment: dark
+        // keeps the faint parchment plate lines; light gets real soft
+        // shadows (white cards on a near-white page need them for
+        // definition). Values live in globals.css.
+        plate: "var(--shadow-plate)",
+        plateHover: "var(--shadow-plate-hover)",
       },
       keyframes: {
         rise: {

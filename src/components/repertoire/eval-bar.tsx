@@ -44,12 +44,19 @@ export function EvalBar({
   const whiteAtBottom = orientation === "white";
   const whiteIsWinning = whitePct >= 50;
 
+  // The bar depicts the CHESS colors, so its fill/track colors are
+  // absolute hex, not theme tokens: white's share must stay white and
+  // black's share near-black in BOTH site themes. (Theme tokens flip in
+  // light mode, which used to render "white is winning" as a dark bar.)
+  // Values match the dark theme's parchment/ink so dark mode looks
+  // unchanged; the surrounding border stays a theme token — it's
+  // chrome, and flipping keeps the bar outlined on both page colors.
   return (
     <div
       className={cx(
         "relative w-8 self-stretch shrink-0",
         "rounded-sm overflow-hidden border border-parchment-50/15",
-        "bg-ink-900",
+        "bg-[#1f2024]",
       )}
     >
       {/* White fill — slides from one end of the bar based on winPct.
@@ -59,7 +66,7 @@ export function EvalBar({
           value. The eased curve also feels less mechanical than
           ease-out. */}
       <div
-        className="absolute left-0 right-0 bg-parchment-50 transition-all duration-700 ease-in-out"
+        className="absolute left-0 right-0 bg-[#f5efe2] transition-all duration-700 ease-in-out"
         style={
           whiteAtBottom
             ? { bottom: 0, height: `${whitePct}%` }
@@ -68,18 +75,20 @@ export function EvalBar({
       />
 
       {/* Eval text — sits in the leading color's region with contrast.
-          Bottom of bar in white-at-bottom mode; top when black-winning. */}
+          Bottom of bar in white-at-bottom mode; top when black-winning.
+          Fixed hex for the same reason as the fill: the text sits on an
+          absolute-colored region, so its contrast pair is absolute too. */}
       <span
         className={cx(
           "absolute left-1/2 -translate-x-1/2 leading-none",
           "text-[11px] font-mono font-bold pointer-events-none select-none",
           whiteIsWinning
             ? whiteAtBottom
-              ? "bottom-0.5 text-ink-900"
-              : "top-0.5 text-ink-900"
+              ? "bottom-0.5 text-[#1f2024]"
+              : "top-0.5 text-[#1f2024]"
             : whiteAtBottom
-              ? "top-0.5 text-parchment-50"
-              : "bottom-0.5 text-parchment-50",
+              ? "top-0.5 text-[#f5efe2]"
+              : "bottom-0.5 text-[#f5efe2]",
         )}
       >
         {evalText}

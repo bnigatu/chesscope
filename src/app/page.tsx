@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Board } from "@/components/repertoire/board";
+import { HeroBoard } from "@/components/repertoire/hero-board";
 import { SourcePickerForm } from "@/components/repertoire/source-picker";
 import { RepertoireExplorer } from "@/components/repertoire/explorer";
 import { filtersFromParams } from "@/lib/repertoire/filters";
@@ -103,7 +103,9 @@ function FormView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
       <div className="lg:col-span-8 lg:order-2">
-        <Board />
+        {/* Auto-replaying hero board (Opera Game, 1858) — motion stays
+            inside the board; pauses on hover and under reduced motion. */}
+        <HeroBoard />
       </div>
       <aside className="lg:col-span-4 lg:order-1 space-y-8 lg:sticky lg:top-6 lg:self-start">
         <SourcePickerForm />

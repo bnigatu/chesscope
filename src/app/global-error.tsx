@@ -26,11 +26,12 @@ export default function GlobalError({
   }, [error]);
 
   // Hex values mirror the Tailwind palette so the page still feels
-  // like chesscope even with stylesheets unavailable:
+  // like chesscope even with stylesheets unavailable (dark-only by
+  // design — no theme machinery is available at this level):
   //   ink-900     #141414  bg
   //   parchment-50 #f5efe7 fg
-  //   brass-light #d4ae5e
-  //   oxblood-light #b85c5c
+  //   brass-light #f7a97f (ember)
+  //   oxblood-light #e05260
   const styles = {
     body: {
       background: "#141414",
@@ -47,7 +48,7 @@ export default function GlobalError({
       fontSize: "11px",
       letterSpacing: ".3em",
       textTransform: "uppercase" as const,
-      color: "#b85c5c",
+      color: "#e05260",
       marginBottom: "1.5rem",
       fontFamily:
         "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
@@ -87,8 +88,8 @@ export default function GlobalError({
       textTransform: "uppercase" as const,
       fontFamily:
         "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-      border: "1px solid rgba(212, 174, 94, 0.5)",
-      color: "#d4ae5e",
+      border: "1px solid rgba(247, 169, 127, 0.5)",
+      color: "#f7a97f",
       background: "transparent",
       borderRadius: "2px",
       cursor: "pointer",

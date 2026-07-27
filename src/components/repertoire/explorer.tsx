@@ -1111,9 +1111,12 @@ function ColorBadge({ color }: { color: "white" | "black" }) {
       className={cx(
         "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm",
         "text-[10px] font-mono uppercase tracking-[.18em] border",
+        // Absolute chess colors (not theme tokens): the badge names a
+        // chess color, so "white" must render white and "black" black
+        // in BOTH site themes — tokens inverted it in light mode.
         color === "white"
-          ? "bg-parchment-50 text-ink-900 border-parchment-50"
-          : "bg-ink-900 text-parchment-50 border-parchment-50/40"
+          ? "bg-[#f5efe2] text-[#1f2024] border-[#1f2024]/25"
+          : "bg-[#1f2024] text-[#f5efe2] border-[#f5efe2]/30"
       )}
     >
       <span aria-hidden>{color === "white" ? "♔" : "♚"}</span>

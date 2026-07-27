@@ -170,22 +170,25 @@ function MultiGameRow({
       </td>
       <td className="px-3 py-2 w-1/2">
         <div className="flex h-4 rounded-sm overflow-hidden border border-parchment-50/10">
+          {/* Absolute result colors — see stats-card: white-wins stays
+              light and draws neutral in both themes; loss text pinned
+              light on the themed red. */}
           <ResultSegment
             pct={w}
             count={move.whiteWins}
-            className="bg-parchment-50 text-ink-900"
+            className="bg-[#f5efe2] text-[#1f2024]"
             label="White wins"
           />
           <ResultSegment
             pct={d}
             count={move.draws}
-            className="bg-parchment-300/40 text-ink-900"
+            className="bg-[#8e9299]/45 text-[#1f2024]"
             label="Draws"
           />
           <ResultSegment
             pct={l}
             count={move.blackWins}
-            className="bg-oxblood text-parchment-50"
+            className="bg-oxblood text-[#f5efe2]"
             label="Black wins"
           />
         </div>

@@ -1,10 +1,39 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 
 const STARTING_FEN =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+const PIECE_NAMES: Record<string, string> = {
+  p: "pawn",
+  n: "knight",
+  b: "bishop",
+  r: "rook",
+  q: "queen",
+  k: "king",
+};
+
+/** square -> "white knight on f3" for every occupied square in a FEN. */
+function pieceLabelsFromFen(fen: string): Record<string, string> {
+  const labels: Record<string, string> = {};
+  const rows = fen.split(" ")[0].split("/");
+  rows.forEach((row, ri) => {
+    let file = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) {
+        file += parseInt(ch, 10);
+      } else {
+        const square = "abcdefgh"[file] + (8 - ri);
+        const color = ch === ch.toUpperCase() ? "White" : "Black";
+        labels[square] = `${color} ${PIECE_NAMES[ch.toLowerCase()] ?? "piece"} on ${square}`;
+        file++;
+      }
+    }
+  });
+  return labels;
+}
 
 export type BoardArrow = {
   startSquare: string;
@@ -51,8 +80,32 @@ function BoardImpl({
   animationMs,
 }: BoardProps) {
   const palette = BOARD_THEMES[theme] ?? BOARD_THEMES.blue;
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // react-chessboard renders each piece as a role="button" draggable
+  // with NO accessible name — 32 anonymous controls per board (axe
+  // aria-command-name, a Section 508 blocker). It exposes no aria
+  // options, so name them ourselves from the FEN after each position
+  // change: "White knight on f3".
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const labels = pieceLabelsFromFen(fen || STARTING_FEN);
+    for (const el of root.querySelectorAll<HTMLElement>(
+      '[id^="chessboard-square-"] [role="button"]',
+    )) {
+      const square = el
+        .closest('[id^="chessboard-square-"]')
+        ?.id.replace("chessboard-square-", "");
+      if (square && labels[square]) el.setAttribute("aria-label", labels[square]);
+    }
+  }, [fen, orientation]);
+
   return (
     <div
+      ref={rootRef}
+      role="group"
+      aria-label="Chess board"
       className="w-full mx-auto"
       style={{ maxWidth: `${size}px` }}
     >

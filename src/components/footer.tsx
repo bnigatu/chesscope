@@ -10,7 +10,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="space-y-2">
             <Wordmark className="text-base" />
-            <p className="text-xs text-parchment-300/80 leading-snug max-w-xs">
+            <p className="text-xs text-parchment-300 leading-snug max-w-xs">
               Open chess data, indexed for the rest of us.
             </p>
           </div>
@@ -29,7 +29,7 @@ export function Footer() {
                 >
                   Lichess broadcasts
                 </a>{" "}
-                <span className="text-parchment-300/60">CC BY-SA 4.0</span>
+                <span className="text-parchment-300">CC BY-SA 4.0</span>
               </li>
             </ul>
           </div>
@@ -69,7 +69,7 @@ export function Footer() {
                 >
                   Donate
                 </a>{" "}
-                <span className="text-parchment-300/60">
+                <span className="text-parchment-300">
                   Help cover hosting &amp; ingest
                 </span>
               </li>
@@ -79,7 +79,7 @@ export function Footer() {
 
         <hr className="rule my-3" />
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-[11px] text-parchment-300/60">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-[11px] text-parchment-300">
           <p className="font-mono">
             © {new Date().getFullYear()} Chesscope. Game data is the property of
             its respective sources, redistributed under their licenses.

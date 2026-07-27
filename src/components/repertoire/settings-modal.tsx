@@ -106,7 +106,7 @@ export function SettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-parchment-300/60 hover:text-parchment-50 transition-colors text-lg leading-none px-2"
+            className="text-parchment-300 hover:text-parchment-50 transition-colors text-lg leading-none px-2"
             aria-label="Close settings"
             title="Close (Esc)"
           >
@@ -137,7 +137,7 @@ export function SettingsModal({
                     "border-l-2 transition-colors",
                     active
                       ? "border-brass text-brass-light bg-brass/5"
-                      : "border-transparent text-parchment-300/70 hover:text-parchment-100 hover:bg-ink-700/40"
+                      : "border-transparent text-parchment-300 hover:text-parchment-100 hover:bg-ink-700/40"
                   )}
                 >
                   <span aria-hidden className="text-base leading-none">
@@ -221,7 +221,7 @@ function EngineTab({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-[11px] text-parchment-300/55 italic">
+          <p className="mt-1 text-[11px] text-parchment-300 italic">
             {ENGINES[settings.engineId].description}
           </p>
         </Field>
@@ -257,7 +257,7 @@ function EngineTab({
         >
           ↻ Restart engine
         </button>
-        <p className="mt-2 text-[11px] text-parchment-300/55 italic">
+        <p className="mt-2 text-[11px] text-parchment-300 italic">
           Tears down the worker and re-initialises with current settings. Use
           if the engine seems stuck.
         </p>
@@ -333,7 +333,7 @@ function InterfaceTab({
         >
           Show keyboard shortcuts
         </button>
-        <p className="mt-2 text-[11px] text-parchment-300/55 italic">
+        <p className="mt-2 text-[11px] text-parchment-300 italic">
           Or press <kbd className="font-mono text-parchment-100">H</kbd> any
           time outside an input.
         </p>
@@ -369,7 +369,7 @@ function SelectRow({
         disabled && "opacity-50 pointer-events-none"
       )}
     >
-      <label className="text-[10px] uppercase tracking-[.18em] text-parchment-300/60">
+      <label className="text-[10px] uppercase tracking-[.18em] text-parchment-300">
         {label}
       </label>
       <select
@@ -388,7 +388,7 @@ function SelectRow({
         ))}
       </select>
       {hint && (
-        <p className="text-[11px] text-parchment-300/55 italic">{hint}</p>
+        <p className="text-[11px] text-parchment-300 italic">{hint}</p>
       )}
     </div>
   );
@@ -415,7 +415,7 @@ function ToggleRow({
       <div className="min-w-0">
         <p className="text-sm text-parchment-100">{label}</p>
         {hint && (
-          <p className="mt-1 text-[11px] text-parchment-300/55 italic leading-snug">
+          <p className="mt-1 text-[11px] text-parchment-300 italic leading-snug">
             {hint}
           </p>
         )}
@@ -541,11 +541,11 @@ function BoardTab({
           >
             +
           </button>
-          <span className="data-num text-xs text-parchment-300/70 w-16 text-right">
+          <span className="data-num text-xs text-parchment-300 w-16 text-right">
             {size}px
           </span>
         </div>
-        <p className="mt-2 text-[11px] text-parchment-300/55 italic">
+        <p className="mt-2 text-[11px] text-parchment-300 italic">
           You can also drag the handle on the right edge of the board.
         </p>
       </Section>
@@ -576,7 +576,7 @@ function Section({
 }) {
   return (
     <div>
-      <h3 className="font-mono text-[10px] uppercase tracking-[.22em] text-parchment-300/55 mb-2">
+      <h3 className="font-mono text-[10px] uppercase tracking-[.22em] text-parchment-300 mb-2">
         {title}
       </h3>
       {children}
@@ -593,7 +593,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-[10px] uppercase tracking-[.18em] text-parchment-300/60">
+      <label className="text-[10px] uppercase tracking-[.18em] text-parchment-300">
         {label}
       </label>
       {children}
@@ -619,7 +619,7 @@ function Slider({
   return (
     <div className="space-y-1 mt-3">
       <div className="flex justify-between text-[10px] uppercase tracking-[.18em]">
-        <span className="text-parchment-300/60">{label}</span>
+        <span className="text-parchment-300">{label}</span>
         <span className="text-parchment-100 font-mono">{value}</span>
       </div>
       <input
@@ -631,7 +631,7 @@ function Slider({
         className="w-full accent-brass"
       />
       {hint && (
-        <p className="text-[11px] text-parchment-300/55 italic">{hint}</p>
+        <p className="text-[11px] text-parchment-300 italic">{hint}</p>
       )}
     </div>
   );

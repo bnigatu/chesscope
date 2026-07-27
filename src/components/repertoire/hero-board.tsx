@@ -99,14 +99,21 @@ export function HeroBoard() {
         pausedRef.current = false;
       }}
     >
-      <Board
-        fen={fens[ply + 1]}
-        // Slide only while replaying; the reduced-motion/static path
-        // renders the start position with no animation machinery.
-        animationMs={animate ? 550 : 0}
-      />
+      {/* Decorative for assistive tech: the replay is ambience, and
+          react-chessboard's 32 piece "buttons" would otherwise read as
+          anonymous controls. `inert` also strips them from the tab
+          order (aria-hidden alone leaves focusable descendants — axe
+          aria-hidden-focus). The caption below stays accessible. */}
+      <div aria-hidden="true" inert>
+        <Board
+          fen={fens[ply + 1]}
+          // Slide only while replaying; the reduced-motion/static path
+          // renders the start position with no animation machinery.
+          animationMs={animate ? 550 : 0}
+        />
+      </div>
       <p
-        className="mt-2 text-center font-mono text-[11px] tracking-wide text-parchment-300/80 tabular-nums min-h-[1rem]"
+        className="mt-2 text-center font-mono text-[11px] tracking-wide text-parchment-300 tabular-nums min-h-[1rem]"
         aria-live="off"
       >
         {GAME_TITLE}

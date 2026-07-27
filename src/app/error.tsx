@@ -34,17 +34,17 @@ export default function Error({
         ◆ Adjournment
       </p>
       <h1 className="font-display text-7xl sm:text-9xl font-light text-parchment-50 leading-none">
-        ½<span className="text-parchment-300/60">–</span>½
+        ½<span className="text-parchment-300">–</span>½
       </h1>
       <p className="mt-8 font-display italic text-2xl text-parchment-100/80">
         Something went wrong loading this position.
       </p>
-      <p className="mt-3 text-sm text-parchment-300/70 max-w-md mx-auto">
+      <p className="mt-3 text-sm text-parchment-300 max-w-md mx-auto">
         It might be a transient hiccup. Try again — or reload the page if
         the error persists.
       </p>
       {error?.digest && (
-        <p className="mt-4 text-[11px] font-mono text-parchment-300/40">
+        <p className="mt-4 text-[11px] font-mono text-parchment-300">
           ref: {error.digest}
         </p>
       )}
@@ -58,7 +58,7 @@ export default function Error({
         </button>
         <Link
           href="/"
-          className="text-xs uppercase tracking-[.2em] font-mono text-parchment-300/70 hover:text-brass transition-colors"
+          className="text-xs uppercase tracking-[.2em] font-mono text-parchment-300 hover:text-brass transition-colors"
         >
           ← Return home
         </Link>

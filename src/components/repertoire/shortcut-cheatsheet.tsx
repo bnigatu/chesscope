@@ -67,7 +67,7 @@ export function ShortcutCheatsheet({
             </li>
           ))}
         </ul>
-        <p className="mt-5 text-[11px] text-parchment-300/55 italic text-center">
+        <p className="mt-5 text-[11px] text-parchment-300 italic text-center">
           Press <kbd className="font-mono text-parchment-100">Esc</kbd> or
           click outside to close.
         </p>

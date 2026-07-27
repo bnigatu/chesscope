@@ -321,7 +321,7 @@ export function SourcePickerForm() {
                   "flex-1 min-w-0 text-xs cursor-pointer truncate",
                   pgnFile
                     ? "text-parchment-100/85 font-mono"
-                    : "text-parchment-300/50 italic"
+                    : "text-parchment-300 italic"
                 )}
               >
                 {pgnFile ? pgnFile.name : "Click to choose a .pgn file"}
@@ -338,7 +338,7 @@ export function SourcePickerForm() {
             </div>
             {enabled.pgn && (
               <div className="flex items-center gap-3 pl-7">
-                <span className="text-[10px] uppercase tracking-[.18em] text-parchment-300/50 w-16 shrink-0">
+                <span className="text-[10px] uppercase tracking-[.18em] text-parchment-300 w-16 shrink-0">
                   Player
                 </span>
                 <input
@@ -400,14 +400,14 @@ export function SourcePickerForm() {
                   ? c === "white"
                     ? "bg-[#f5efe2] text-[#1f2024] border border-[#1f2024]/25"
                     : "bg-[#1f2024] text-[#f5efe2] border border-[#f5efe2]/30"
-                  : "text-parchment-300/60 hover:text-parchment-100"
+                  : "text-parchment-300 hover:text-parchment-100"
               )}
             >
               {c}
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-parchment-300/50 italic mt-1">
+        <p className="text-[11px] text-parchment-300 italic mt-1">
           Only games where the player had this color are walked into the tree.
         </p>
       </Section>
@@ -521,7 +521,7 @@ export function SourcePickerForm() {
                 onChange={(n) => setFilter("limit", n)}
                 placeholder="No limit"
               />
-              <span className="text-[11px] text-parchment-300/50 italic">
+              <span className="text-[11px] text-parchment-300 italic">
                 games (0 = unlimited)
               </span>
             </div>
@@ -584,7 +584,7 @@ function Pill({
         "px-3 py-2 text-sm rounded-sm transition-colors capitalize",
         active
           ? "bg-brass/20 text-parchment-50 border border-brass/50"
-          : "bg-ink-700/60 text-parchment-100/70 border border-parchment-50/15 hover:text-parchment-100"
+          : "bg-ink-700/60 text-parchment-100/90 border border-parchment-50/15 hover:text-parchment-100"
       )}
     >
       {children}
@@ -595,7 +595,7 @@ function Pill({
 const inputClass = cx(
   "w-full bg-transparent outline-none",
   "text-sm font-mono text-parchment-100",
-  "placeholder:text-parchment-300/40",
+  "placeholder:text-parchment-300",
   "border-b border-parchment-50/10 focus:border-brass/70 transition-colors",
   "px-1 py-1"
 );
@@ -611,7 +611,7 @@ function DateInput({
 }) {
   return (
     <label className="block">
-      <span className="block text-[10px] uppercase tracking-[.18em] text-parchment-300/50 mb-1">
+      <span className="block text-[10px] uppercase tracking-[.18em] text-parchment-300 mb-1">
         {label}
       </span>
       <input

@@ -543,15 +543,15 @@ export function EnginePanel({
             ? "SF 18 NNUE · MT"
             : "SF 18 NNUE"}
         </span>
-        <span className="text-[11px] font-mono text-parchment-300/70 truncate flex-1 min-w-0">
+        <span className="text-[11px] font-mono text-parchment-300 truncate flex-1 min-w-0">
           <span className="text-parchment-100">{depthSeen || "—"}</span>
           {nps ? (
             <>
-              <span className="text-parchment-300/30 mx-1">·</span>
+              <span className="text-parchment-300 mx-1">·</span>
               {(nps / 1000).toFixed(0)}k/s
             </>
           ) : status === "loading" ? (
-            <span className="text-parchment-300/40 italic"> loading…</span>
+            <span className="text-parchment-300 italic"> loading…</span>
           ) : status === "error" ? (
             <span className="text-oxblood-light italic"> error</span>
           ) : null}
@@ -562,7 +562,7 @@ export function EnginePanel({
           className={cx(
             "shrink-0 px-1.5 py-0.5 text-[10px] uppercase tracking-[.18em]",
             "border rounded-sm transition-colors",
-            "border-parchment-50/15 text-parchment-300/60 hover:border-parchment-50/30"
+            "border-parchment-50/15 text-parchment-300 hover:border-parchment-50/30"
           )}
           title="Open settings"
         >
@@ -578,7 +578,7 @@ export function EnginePanel({
             "border rounded-sm transition-colors",
             settings.enabled
               ? "border-brass/50 text-brass-light hover:bg-brass/10"
-              : "border-parchment-50/15 text-parchment-300/60 hover:border-parchment-50/30"
+              : "border-parchment-50/15 text-parchment-300 hover:border-parchment-50/30"
           )}
           aria-pressed={settings.enabled}
           title="Toggle engine (e)"
@@ -635,7 +635,7 @@ export function EnginePanel({
                         ? line.evalCp >= 0
                           ? "bg-[#f5efe2] text-[#1f2024] border border-[#1f2024]/15"
                           : "bg-[#1f2024] text-[#f5efe2] border border-[#f5efe2]/25"
-                        : "text-parchment-300/40 bg-transparent"
+                        : "text-parchment-300 bg-transparent"
                     )}
                   >
                     {line ? line.evalStr : "·"}
@@ -650,7 +650,7 @@ export function EnginePanel({
                         }
                       />
                     ) : (
-                      <span className="text-parchment-300/40 italic">
+                      <span className="text-parchment-300 italic">
                         {status === "ready" ? "calculating…" : "loading…"}
                       </span>
                     )}
@@ -661,7 +661,7 @@ export function EnginePanel({
           </ul>
         )
       ) : (
-        <div className="px-3 py-3 text-sm text-parchment-300/50 italic">
+        <div className="px-3 py-3 text-sm text-parchment-300 italic">
           Engine off. Click On (or press <kbd>e</kbd>) to analyze.
         </div>
       )}
@@ -704,7 +704,7 @@ function PvLine({
         );
       })}
       {moves.length > 14 && (
-        <span className="text-parchment-300/40">…</span>
+        <span className="text-parchment-300">…</span>
       )}
     </span>
   );

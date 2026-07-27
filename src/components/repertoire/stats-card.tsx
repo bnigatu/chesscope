@@ -46,7 +46,7 @@ export function StatsCard({
 
 function Empty() {
   return (
-    <p className="text-sm text-parchment-300/50 italic text-center py-3">
+    <p className="text-sm text-parchment-300 italic text-center py-3">
       Build a tree to see win-rate, performance, and game stats for this
       position.
     </p>
@@ -94,7 +94,7 @@ function Body({
           />
           <Segment pct={lossPct} className="bg-oxblood text-[#f5efe2]" />
         </div>
-        <div className="flex justify-between text-[11px] font-mono text-parchment-300/60">
+        <div className="flex justify-between text-[11px] font-mono text-parchment-300">
           <span>{wins}W</span>
           <span>{draws}D</span>
           <span>{losses}L</span>
@@ -150,7 +150,7 @@ function Row({
 }) {
   return (
     <li className="flex justify-between items-baseline gap-3 border-b border-parchment-50/6 pb-1 last:border-b-0 last:pb-0">
-      <span className="text-[11px] uppercase tracking-[.18em] text-parchment-300/60">
+      <span className="text-[11px] uppercase tracking-[.18em] text-parchment-300">
         {label}
       </span>
       <span className="data-num text-parchment-100/90 truncate">

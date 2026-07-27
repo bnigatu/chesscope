@@ -21,20 +21,20 @@ export function PlayerResults({ players }: { players: PlayerHit[] }) {
                   {p.name}
                 </span>
                 {p.fideId && (
-                  <span className="data-num text-[11px] text-parchment-300/50 shrink-0">
+                  <span className="data-num text-[11px] text-parchment-300 shrink-0">
                     FIDE {p.fideId}
                   </span>
                 )}
               </div>
-              <div className="flex items-baseline gap-6 shrink-0 data-num text-xs text-parchment-300/70">
+              <div className="flex items-baseline gap-6 shrink-0 data-num text-xs text-parchment-300">
                 {p.peakElo ? (
                   <span>
-                    <span className="text-parchment-300/50">peak </span>
+                    <span className="text-parchment-300">peak </span>
                     {p.peakElo}
                   </span>
                 ) : null}
                 <span>
-                  <span className="text-parchment-300/50">games </span>
+                  <span className="text-parchment-300">games </span>
                   {p.gameCount.toLocaleString()}
                 </span>
               </div>
@@ -61,7 +61,7 @@ export function GameResults({
       </h2>
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="text-left text-parchment-300/50 text-[11px] uppercase tracking-[.18em] border-b border-parchment-50/15">
+          <thead className="text-left text-parchment-300 text-[11px] uppercase tracking-[.18em] border-b border-parchment-50/15">
             <tr>
               <th className="px-4 py-3 font-normal">Date</th>
               <th className="px-4 py-3 font-normal">White</th>
@@ -82,7 +82,7 @@ export function GameResults({
                 key={g.id}
                 className="hover:bg-ink-700/40 transition-colors"
               >
-                <td className="px-4 py-2.5 data-num text-parchment-300/70 whitespace-nowrap">
+                <td className="px-4 py-2.5 data-num text-parchment-300 whitespace-nowrap">
                   {formatPgnDate(g.date)}
                 </td>
                 <td className="px-4 py-2.5">
@@ -109,7 +109,7 @@ export function GameResults({
                 <td className="px-4 py-2.5 hidden md:table-cell text-parchment-100/80 truncate max-w-[18ch]">
                   {g.event ?? "—"}
                 </td>
-                <td className="px-4 py-2.5 hidden lg:table-cell text-parchment-300/70 truncate max-w-[20ch]">
+                <td className="px-4 py-2.5 hidden lg:table-cell text-parchment-300 truncate max-w-[20ch]">
                   {g.opening ?? g.eco ?? "—"}
                 </td>
                 <td className="px-4 py-2.5 text-right">
@@ -118,7 +118,7 @@ export function GameResults({
                       href={g.broadcastUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-parchment-300/60 hover:text-brass transition-colors"
+                      className="text-xs text-parchment-300 hover:text-brass transition-colors"
                       aria-label="View on Lichess"
                     >
                       ↗

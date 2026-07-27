@@ -59,7 +59,7 @@ function TranspositionMark({ level, tooltip }: { level: TranspositionLevel; tool
       aria-label={tooltip}
       className={cx(
         "ml-1 align-middle text-[11px] leading-none cursor-help",
-        isWarning ? "text-oxblood-light" : "text-parchment-300/55"
+        isWarning ? "text-oxblood-light" : "text-parchment-300"
       )}
     >
       {isWarning ? "⚠" : "ⓘ"}
@@ -90,7 +90,7 @@ export function MovesPanel({
         )}
       >
         {moves.length === 0 ? (
-          <p className="px-4 py-8 text-center text-parchment-300/50 font-display italic text-sm">
+          <p className="px-4 py-8 text-center text-parchment-300 font-display italic text-sm">
             No moves recorded at this position.
           </p>
         ) : (
@@ -103,7 +103,7 @@ export function MovesPanel({
               <col className="w-[4rem]" />
               <col />
             </colgroup>
-            <thead className="text-left text-[11px] uppercase tracking-[.18em] text-parchment-300/50 border-b border-parchment-50/15">
+            <thead className="text-left text-[11px] uppercase tracking-[.18em] text-parchment-300 border-b border-parchment-50/15">
               <tr>
                 <th className="px-3 py-2 font-normal">Move</th>
                 <th className="px-3 py-2 font-normal text-right">Games</th>
@@ -240,13 +240,13 @@ function SingleGameRow({
           >
             {game.white}
             {game.whiteElo ? (
-              <span className="data-num text-parchment-300/55">
+              <span className="data-num text-parchment-300">
                 {" "}
                 ({game.whiteElo})
               </span>
             ) : null}
           </span>
-          <span className="data-num text-parchment-300/70 mx-1 shrink-0">
+          <span className="data-num text-parchment-300 mx-1 shrink-0">
             {RESULT_TEXT[game.result]}
           </span>
           <span
@@ -257,7 +257,7 @@ function SingleGameRow({
           >
             {game.black}
             {game.blackElo ? (
-              <span className="data-num text-parchment-300/55">
+              <span className="data-num text-parchment-300">
                 {" "}
                 ({game.blackElo})
               </span>
@@ -269,7 +269,7 @@ function SingleGameRow({
               target="_blank"
               rel="noopener noreferrer"
               onClick={stop}
-              className="shrink-0 text-parchment-300/60 hover:text-brass-light transition-colors"
+              className="shrink-0 text-parchment-300 hover:text-brass-light transition-colors"
               aria-label={`Open game on ${game.source}`}
               title={`Open on ${game.source}`}
             >

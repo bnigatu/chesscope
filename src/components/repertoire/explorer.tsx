@@ -1007,7 +1007,7 @@ function Progress({
     >
       <div className="flex items-center gap-3 flex-wrap">
         <ColorBadge color={color} />
-        <span className="text-parchment-300/70">
+        <span className="text-parchment-300">
           {status === "loading" && (
             <>
               <span className="animate-pulse text-brass-light">●</span>{" "}
@@ -1023,7 +1023,7 @@ function Progress({
           )}
           {status === "cancelled" && (
             <>
-              <span className="text-parchment-300/70">⏸</span> Cancelled at{" "}
+              <span className="text-parchment-300">⏸</span> Cancelled at{" "}
               {total.toLocaleString()}
             </>
           )}
@@ -1035,7 +1035,7 @@ function Progress({
         </span>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-parchment-300/55">
+        <span className="text-parchment-300">
           {lichessUser && (
             <>
               lichess{" "}
@@ -1046,7 +1046,7 @@ function Progress({
             </>
           )}
           {lichessUser && (chesscomUser || pgnFilename) && (
-            <span className="text-parchment-300/30 mx-2">·</span>
+            <span className="text-parchment-300 mx-2">·</span>
           )}
           {chesscomUser && (
             <>
@@ -1058,7 +1058,7 @@ function Progress({
             </>
           )}
           {chesscomUser && pgnFilename && (
-            <span className="text-parchment-300/30 mx-2">·</span>
+            <span className="text-parchment-300 mx-2">·</span>
           )}
           {pgnFilename && (
             <>

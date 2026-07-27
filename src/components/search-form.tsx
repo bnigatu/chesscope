@@ -116,7 +116,7 @@ export function SearchForm({
               : "border-parchment-50/20 focus-within:border-brass/70",
           )}
         >
-          <span className="pl-1 text-parchment-300/60" aria-hidden>
+          <span className="pl-1 text-parchment-300" aria-hidden>
             <SearchIcon size={size === "lg" ? 22 : 18} />
           </span>
           <input
@@ -145,7 +145,7 @@ export function SearchForm({
                 : "Search a player or event"
             }
             className={cx(
-              "flex-1 bg-transparent px-3 py-3 outline-none text-parchment-50 placeholder:text-parchment-300/40",
+              "flex-1 bg-transparent px-3 py-3 outline-none text-parchment-50 placeholder:text-parchment-300",
               size === "lg"
                 ? "text-2xl sm:text-3xl font-display font-light"
                 : "text-base font-body",
@@ -153,7 +153,7 @@ export function SearchForm({
             spellCheck={false}
           />
           {loading && (
-            <span className="text-parchment-300/60 pr-2 animate-pulse text-sm font-mono">
+            <span className="text-parchment-300 pr-2 animate-pulse text-sm font-mono">
               ⋯
             </span>
           )}
@@ -196,9 +196,9 @@ export function SearchForm({
                 onClick={() => setOpen(false)}
               >
                 <span className="font-display text-base">{s.name}</span>
-                <span className="data-num text-xs text-parchment-300/70 ml-4 shrink-0">
+                <span className="data-num text-xs text-parchment-300 ml-4 shrink-0">
                   {s.peakElo ? `${s.peakElo}` : "—"}{" "}
-                  <span className="text-parchment-300/40">
+                  <span className="text-parchment-300">
                     · {s.gameCount} games
                   </span>
                 </span>

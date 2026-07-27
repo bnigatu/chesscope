@@ -100,7 +100,7 @@ export default async function GamePage({ params }: { params: Params }) {
             <p className="font-mono text-[11px] uppercase tracking-[.3em] text-brass">
               {game.event}
               {game.round && (
-                <span className="text-parchment-300/60">
+                <span className="text-parchment-300">
                   {" · Round "}
                   {game.round}
                 </span>
@@ -114,9 +114,9 @@ export default async function GamePage({ params }: { params: Params }) {
             >
               {game.white}
             </Link>{" "}
-            <span className="text-parchment-300/60">·</span>{" "}
+            <span className="text-parchment-300">·</span>{" "}
             <span className="data-num">{formatResult(game.result)}</span>{" "}
-            <span className="text-parchment-300/60">·</span>{" "}
+            <span className="text-parchment-300">·</span>{" "}
             <Link
               href={`/player/${playerSlug(game.black)}`}
               className="hover:text-brass-light transition-colors"
@@ -124,7 +124,7 @@ export default async function GamePage({ params }: { params: Params }) {
               {game.black}
             </Link>
           </h1>
-          <p className="text-sm text-parchment-300/70">
+          <p className="text-sm text-parchment-300">
             {formatPgnDate(game.date)}
             {game.eco && (
               <span>
@@ -164,7 +164,7 @@ export default async function GamePage({ params }: { params: Params }) {
               {game.pgn}
             </pre>
           ) : (
-            <p className="card p-6 text-sm text-parchment-300/70">
+            <p className="card p-6 text-sm text-parchment-300">
               PGN body not stored locally. View at the original source.
             </p>
           )}
@@ -202,7 +202,7 @@ function PlayerSide({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-[11px] uppercase tracking-[.22em] text-parchment-300/60">
+      <p className="text-[11px] uppercase tracking-[.22em] text-parchment-300">
         {color}
       </p>
       <p className="font-display text-2xl text-parchment-50">
@@ -214,10 +214,10 @@ function PlayerSide({
           {name}
         </Link>
       </p>
-      <p className="data-num text-sm text-parchment-300/70">
+      <p className="data-num text-sm text-parchment-300">
         {elo ? `${elo} Elo` : "—"}
         {fide && (
-          <span className="ml-3 text-parchment-300/50">FIDE {fide}</span>
+          <span className="ml-3 text-parchment-300">FIDE {fide}</span>
         )}
       </p>
     </div>

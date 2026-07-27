@@ -138,7 +138,7 @@ export default async function PlayerPage({ params }: { params: Params }) {
             {player.name}
           </h1>
           {player.fideId && (
-            <p className="data-num text-sm text-parchment-300/70">
+            <p className="data-num text-sm text-parchment-300">
               FIDE ID {player.fideId}
             </p>
           )}
@@ -204,7 +204,7 @@ function Statistic({
       >
         {value}
       </div>
-      <div className="mt-1 text-[10px] uppercase tracking-[.22em] text-parchment-300/60">
+      <div className="mt-1 text-[10px] uppercase tracking-[.22em] text-parchment-300">
         {label}
       </div>
     </div>
@@ -214,7 +214,7 @@ function Statistic({
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between items-baseline border-b border-parchment-50/6 pb-2">
-      <span className="text-[11px] uppercase tracking-[.2em] text-parchment-300/60">
+      <span className="text-[11px] uppercase tracking-[.2em] text-parchment-300">
         {label}
       </span>
       <span className="data-num text-parchment-100/90">{value}</span>

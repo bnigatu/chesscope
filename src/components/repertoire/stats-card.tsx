@@ -82,12 +82,17 @@ function Body({
       {/* W/D/L bar */}
       <div className="space-y-1.5">
         <div className="flex h-5 rounded-sm overflow-hidden border border-parchment-50/10">
-          <Segment pct={winPct} className="bg-parchment-50 text-ink-900" />
+          {/* Absolute result colors: win stays light, draw neutral
+              gray, loss red-with-light-text in BOTH themes. Theme
+              tokens rendered the win segment near-black in light
+              mode. Loss keeps the themed red fill (red either way)
+              but pins the text light for contrast on it. */}
+          <Segment pct={winPct} className="bg-[#f5efe2] text-[#1f2024]" />
           <Segment
             pct={drawPct}
-            className="bg-parchment-300/40 text-ink-900"
+            className="bg-[#8e9299]/45 text-[#1f2024]"
           />
-          <Segment pct={lossPct} className="bg-oxblood text-parchment-50" />
+          <Segment pct={lossPct} className="bg-oxblood text-[#f5efe2]" />
         </div>
         <div className="flex justify-between text-[11px] font-mono text-parchment-300/60">
           <span>{wins}W</span>

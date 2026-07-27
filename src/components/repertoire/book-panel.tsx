@@ -187,15 +187,17 @@ export function BookPanel({
                     </td>
                     <td className="px-2 py-1.5">
                       <div className="flex h-3 rounded-sm overflow-hidden border border-parchment-50/10">
+                        {/* Absolute result colors, matching the other
+                            W/D/L bars — tokens went dark in light mode. */}
                         {w > 0 && (
                           <div
-                            className="bg-parchment-50"
+                            className="bg-[#f5efe2]"
                             style={{ width: `${w}%` }}
                           />
                         )}
                         {d > 0 && (
                           <div
-                            className="bg-parchment-300/40"
+                            className="bg-[#8e9299]/45"
                             style={{ width: `${d}%` }}
                           />
                         )}

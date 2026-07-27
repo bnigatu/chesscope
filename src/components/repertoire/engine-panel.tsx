@@ -627,10 +627,14 @@ export function EnginePanel({
                       // chess.com pattern: white bg + dark text when
                       // White is winning, black bg + white text when
                       // Black is winning. Reads as a score badge.
+                      // Absolute chess colors: a positive eval is
+                      // "white is better", so the badge is white with
+                      // dark text in BOTH themes (theme tokens flipped
+                      // it to black in light mode), and vice versa.
                       line
                         ? line.evalCp >= 0
-                          ? "bg-parchment-50 text-ink-900"
-                          : "bg-ink-900 text-parchment-50 border border-parchment-50/15"
+                          ? "bg-[#f5efe2] text-[#1f2024] border border-[#1f2024]/15"
+                          : "bg-[#1f2024] text-[#f5efe2] border border-[#f5efe2]/25"
                         : "text-parchment-300/40 bg-transparent"
                     )}
                   >

@@ -110,7 +110,8 @@ export function Wordmark({
       {withGlyph && (
         // Inline vector mark: crisp at any zoom/DPR and follows the
         // accent token per theme (the old raster PNG did neither).
-        <ScopeMark className="w-5 h-5 shrink-0 text-brass" />
+        // 32px per the user — the mark is bold enough to carry it.
+        <ScopeMark className="w-8 h-8 shrink-0 text-brass" />
       )}
       <span className="tracking-tight">
         Ches<span className="text-brass">scope</span>

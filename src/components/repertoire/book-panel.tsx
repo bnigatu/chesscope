@@ -122,7 +122,7 @@ export function BookPanel({
 
         {status !== "needsAuth" && data?.opening && (
           <div className="px-3 py-2 border-b border-parchment-50/6 text-xs">
-            <span className="font-mono text-parchment-300/55">
+            <span className="font-mono text-parchment-300">
               {data.opening.eco}
             </span>
             <span className="text-parchment-100/85 ml-2">
@@ -132,7 +132,7 @@ export function BookPanel({
         )}
 
         {status === "loading" && !data && (
-          <p className="px-3 py-6 text-center text-xs italic text-parchment-300/40">
+          <p className="px-3 py-6 text-center text-xs italic text-parchment-300">
             Loading book…
           </p>
         )}
@@ -145,14 +145,14 @@ export function BookPanel({
           status !== "needsAuth" &&
           data &&
           data.moves.length === 0 && (
-            <p className="px-3 py-6 text-center text-xs italic text-parchment-300/40">
+            <p className="px-3 py-6 text-center text-xs italic text-parchment-300">
               No book moves at this position.
             </p>
           )}
 
         {status !== "needsAuth" && data && data.moves.length > 0 && (
           <table className="w-full text-sm">
-            <thead className="text-left text-[10px] uppercase tracking-[.18em] text-parchment-300/50 border-b border-parchment-50/15">
+            <thead className="text-left text-[10px] uppercase tracking-[.18em] text-parchment-300 border-b border-parchment-50/15">
               <tr>
                 <th className="px-3 py-2 font-normal">Move</th>
                 <th className="px-2 py-2 font-normal text-right">Games</th>
@@ -182,7 +182,7 @@ export function BookPanel({
                     <td className="px-2 py-1.5 data-num text-right text-parchment-100/85">
                       {compact(moveTotal)}
                     </td>
-                    <td className="px-2 py-1.5 data-num text-right text-parchment-300/70">
+                    <td className="px-2 py-1.5 data-num text-right text-parchment-300">
                       {m.averageRating ?? "—"}
                     </td>
                     <td className="px-2 py-1.5">
@@ -221,7 +221,7 @@ export function BookPanel({
           data.topGames &&
           data.topGames.length > 0 && (
             <div className="border-t border-parchment-50/15">
-              <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-[.18em] text-parchment-300/55">
+              <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-[.18em] text-parchment-300">
                 {data.topGames.length === 1 ? "Game" : "Top games"}
               </div>
               <ul className="divide-y divide-parchment-50/6">
@@ -242,12 +242,12 @@ export function BookPanel({
                         )}
                       >
                         {g.white.name}
-                        <span className="data-num text-parchment-300/55">
+                        <span className="data-num text-parchment-300">
                           {" "}
                           ({g.white.rating})
                         </span>
                       </span>
-                      <span className="data-num text-parchment-300/70 mx-1 shrink-0">
+                      <span className="data-num text-parchment-300 mx-1 shrink-0">
                         {g.winner === "white"
                           ? "1–0"
                           : g.winner === "black"
@@ -262,12 +262,12 @@ export function BookPanel({
                         )}
                       >
                         {g.black.name}
-                        <span className="data-num text-parchment-300/55">
+                        <span className="data-num text-parchment-300">
                           {" "}
                           ({g.black.rating})
                         </span>
                       </span>
-                      <span className="text-parchment-300/55 shrink-0">↗</span>
+                      <span className="text-parchment-300 shrink-0">↗</span>
                     </a>
                   </li>
                 ))}
@@ -276,7 +276,7 @@ export function BookPanel({
           )}
 
         {status !== "needsAuth" && data && total > 0 && (
-          <div className="px-3 py-1.5 border-t border-parchment-50/6 flex justify-between text-[10px] font-mono text-parchment-300/50">
+          <div className="px-3 py-1.5 border-t border-parchment-50/6 flex justify-between text-[10px] font-mono text-parchment-300">
             <span>{compact(total)} games at this position</span>
             {signedIn && (
               <button
@@ -309,7 +309,7 @@ function NeedsAuth() {
       <p className="text-sm text-parchment-100/80">
         Connect your Lichess account to view book theory.
       </p>
-      <p className="text-[11px] text-parchment-300/55 italic">
+      <p className="text-[11px] text-parchment-300 italic">
         Lichess started requiring sign-in on its Opening Explorer in 2026 to
         defend against DDoS. We never see your password, auth happens on
         lichess.org. Token is stored only on your device.
@@ -346,8 +346,11 @@ function BookTab({
         "px-2 py-0.5 text-[10px] uppercase tracking-[.18em] rounded-sm",
         "border transition-colors",
         active
-          ? "border-brass/50 text-brass-light bg-brass/10"
-          : "border-parchment-50/10 text-parchment-300/55 hover:text-parchment-100",
+          ? // text-brass (not -light): over the bg-brass/10 tint the
+            // light tier measures 4.08:1 at this 10px size; the DEFAULT
+            // tier clears 4.5:1 AA in both themes.
+            "border-brass/50 text-brass bg-brass/10"
+          : "border-parchment-50/10 text-parchment-300 hover:text-parchment-100",
       )}
     >
       {label}

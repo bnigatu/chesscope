@@ -72,7 +72,7 @@ export function MoveListPanel({
         )}
       >
         {rows === 0 ? (
-          <p className="px-3 py-6 text-sm text-parchment-300/40 italic text-center">
+          <p className="px-3 py-6 text-sm text-parchment-300 italic text-center">
             No moves yet.
           </p>
         ) : (
@@ -90,7 +90,7 @@ export function MoveListPanel({
                     r % 2 === 0 ? "bg-ink-800/30" : "bg-ink-700/30"
                   )}
                 >
-                  <span className="flex items-center justify-end pr-2 text-[11px] font-mono text-parchment-300/55">
+                  <span className="flex items-center justify-end pr-2 text-[11px] font-mono text-parchment-300">
                     {r + 1}.
                   </span>
                   <MoveCell
@@ -181,7 +181,7 @@ function MoveCell({
         {figurine(move.san, isBlack)}
       </button>
       {move.alternates.length > 0 && (
-        <span className="text-parchment-300/40 italic text-xs truncate min-w-0">
+        <span className="text-parchment-300 italic text-xs truncate min-w-0">
           (
           {move.alternates.map((alt, i) => (
             <span key={alt}>

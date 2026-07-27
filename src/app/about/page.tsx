@@ -155,19 +155,19 @@ export default async function AboutPage() {
           {stats ? (
             <ul className="grid grid-cols-2 gap-x-8 gap-y-3 not-prose data-num text-parchment-50">
               <li className="flex justify-between border-b border-parchment-50/15 pb-2">
-                <span className="text-parchment-300/60">Games</span>
+                <span className="text-parchment-300">Games</span>
                 <span>{stats.games?.toLocaleString() ?? "-"}</span>
               </li>
               <li className="flex justify-between border-b border-parchment-50/15 pb-2">
-                <span className="text-parchment-300/60">Players</span>
+                <span className="text-parchment-300">Players</span>
                 <span>{stats.players?.toLocaleString() ?? "-"}</span>
               </li>
               <li className="flex justify-between border-b border-parchment-50/15 pb-2">
-                <span className="text-parchment-300/60">Tournaments</span>
+                <span className="text-parchment-300">Tournaments</span>
                 <span>{stats.events?.toLocaleString() ?? "-"}</span>
               </li>
               <li className="flex justify-between border-b border-parchment-50/15 pb-2">
-                <span className="text-parchment-300/60">Latest</span>
+                <span className="text-parchment-300">Latest</span>
                 <span>{stats.latest ?? "-"}</span>
               </li>
             </ul>
@@ -196,11 +196,13 @@ export default async function AboutPage() {
           <p>
             Chesscope is fully open source. Read the code, file an issue, or
             send a pull request on{" "}
+            {/* Always underlined: a link inside body text must be
+                distinguishable by more than color (WCAG 1.4.1). */}
             <a
               href="https://github.com/bnigatu/chesscope"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-brass-light hover:underline"
+              className="text-brass-light underline decoration-brass/50 underline-offset-4 hover:decoration-brass"
             >
               GitHub
             </a>

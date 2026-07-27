@@ -203,6 +203,15 @@
     font-family: theme("fontFamily.mono");
     font-variant-numeric: tabular-nums slashed-zero;
   }
+
+  /* Keyboard focus must be visible (Section 508 / WCAG 2.4.7). Ember
+     outline clears 3:1 against both themes' surfaces; :focus-visible
+     keeps it off mouse clicks. Components with their own focus styles
+     still get this as a consistent baseline. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--brass));
+    outline-offset: 2px;
+  }
 }
 
 @layer components {

@@ -28,7 +28,7 @@ export function Filters() {
         <Row label="Date range">
           <div className="flex items-center gap-2">
             <DateInput placeholder="from" />
-            <span className="text-parchment-300/40">→</span>
+            <span className="text-parchment-300">→</span>
             <DateInput placeholder="to" />
           </div>
         </Row>
@@ -66,7 +66,7 @@ function Row({
 }) {
   return (
     <div className="flex items-baseline gap-3">
-      <span className="text-[11px] uppercase tracking-[.18em] text-parchment-300/60 w-28 shrink-0">
+      <span className="text-[11px] uppercase tracking-[.18em] text-parchment-300 w-28 shrink-0">
         {label}
       </span>
       <div className="flex-1 min-w-0">{children}</div>
@@ -102,7 +102,7 @@ function Radio({
 const inputClass = cx(
   "w-full bg-transparent outline-none",
   "text-sm font-mono text-parchment-100",
-  "placeholder:text-parchment-300/40",
+  "placeholder:text-parchment-300",
   "border-b border-parchment-50/10 focus:border-brass/70 transition-colors",
   "px-1 py-1"
 );

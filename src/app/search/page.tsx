@@ -61,7 +61,7 @@ export default async function SearchPage({
               </em>
               .
             </h1>
-            <p className="text-parchment-100/75 max-w-xl text-lg leading-relaxed">
+            <p className="text-parchment-100/90 max-w-xl text-lg leading-relaxed">
               Every game from the Lichess broadcast archive | coaches preparing
               for tournaments, journalists tracking players, parents looking up
               their kids&rsquo; games. No login, no rate limits, no tracking.
@@ -86,11 +86,11 @@ export default async function SearchPage({
             </>
           ) : (
             <div className="text-center py-12">
-              <p className="font-display text-2xl text-parchment-100/70">
+              <p className="font-display text-2xl text-parchment-100/90">
                 No matches for{" "}
                 <em className="text-brass-light">&ldquo;{query}&rdquo;</em>
               </p>
-              <p className="mt-3 text-sm text-parchment-300/60">
+              <p className="mt-3 text-sm text-parchment-300">
                 Try a partial name (e.g. &ldquo;carl&rdquo; instead of
                 &ldquo;Carlsen, Magnus&rdquo;).
               </p>

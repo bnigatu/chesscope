@@ -67,7 +67,9 @@ function BoardImpl({
           lightSquareStyle: { backgroundColor: palette.light },
           boardStyle: {
             borderRadius: "2px",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.45)",
+            // Softened from 0.45 — the hard shadow read heavy on the
+            // light theme's near-white page.
+            boxShadow: "0 4px 24px rgba(0,0,0,0.32)",
           },
           arrows: arrows && arrows.length > 0 ? arrows : undefined,
           onPieceDrop: ({ sourceSquare, targetSquare }) => {

@@ -39,7 +39,7 @@ export function ThemeToggle() {
       'meta[name="theme-color"]'
     );
     if (meta) {
-      meta.setAttribute("content", next === "light" ? "#f7f3ea" : "#1f2024");
+      meta.setAttribute("content", next === "light" ? "#f6f7f9" : "#1f2024");
     }
     setTheme(next);
   }

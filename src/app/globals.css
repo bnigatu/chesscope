@@ -6,14 +6,23 @@
 
 @layer base {
   /* -------------------------------------------------------------------
-   * Theme tokens.
+   * Theme tokens — 2026-07 "Ember" reskin.
    *
-   * Default `:root` is the dark palette. `[data-theme="light"]` overrides
-   * with a parchment-cream light palette tuned for WCAG AA: every body-
-   * text token meets 4.5:1 against the surface it's intended to sit on,
-   * and emphasis tokens (brass-light) meet 5:1+. The ramp keeps the same
-   * dark-mode-flavored Tailwind class names (ink-*, parchment-*) — the
-   * names lie a little in light mode but the migration cost is zero.
+   * Default `:root` is the dark palette: the original ink/parchment
+   * surfaces with the accent moved from brass gold to ember orange
+   * (users read brass as Lichess-brown). `[data-theme="light"]` is a
+   * modern-neutral light palette — cool near-white page, pure-white
+   * cards — replacing the old parchment-cream light mode that users
+   * found dull, with the same ember accent darkened for AA on white.
+   * Every text token meets 4.5:1 against its intended surface. Class
+   * names (ink-*, parchment-*, brass-*) are kept even where the values
+   * no longer match the name — renaming them would touch 28 files for
+   * zero visual gain.
+   *
+   * ALL accent tokens (brass-*, oxblood-*) are CSS variables now, so
+   * the accent flips per theme like the surfaces do. (Previously brass
+   * DEFAULT/dark and oxblood-* were literal hex in tailwind.config.ts,
+   * which is why light mode had 2.6:1 gold-on-cream text.)
    *
    * Tokens published as `R G B` triplets (no rgb() wrapper) so Tailwind
    * can compose them with /<alpha-value>.
@@ -32,43 +41,78 @@
     --parchment-200: 220 208 182;
     --parchment-300: 194 178 145;
 
-    /* Brand accents that need to stay readable across themes.
-       brass-light is the "emphasized brand text" role. brass DEFAULT and
-       brass-dark stay literal (used at low alpha for borders, etc.). */
-    --brass-light: 212 174 94;
+    /* Accent (Tailwind: brass-*) — ember orange. DEFAULT is the working
+       accent (borders, low-alpha chrome, brand text); light is the
+       emphasized-text tier; dark is the deep tier for pressed/borders. */
+    --brass: 240 137 90; /* #f0895a */
+    --brass-light: 247 169 127; /* #f7a97f */
+    --brass-dark: 163 74 32; /* #a34a20 */
+
+    /* Loss/danger (Tailwind: oxblood-*). DEFAULT is a fill (loss bars —
+       parchment text on it passes AA); light is the text tier, lifted
+       from the old #9a2c30 which was only ~2.4:1 on ink. */
+    --oxblood: 178 64 79; /* #b2404f */
+    --oxblood-light: 224 82 96; /* #e05260 */
+    --oxblood-dark: 122 30 34; /* #7a1e22 */
+
+    /* Card shadows (Tailwind: shadow-plate / shadow-plateHover). Dark
+       mode keeps the original faint parchment plate lines. */
+    --shadow-plate:
+      0 1px 0 rgb(var(--parchment-50) / 0.04),
+      0 0 0 1px rgb(var(--parchment-50) / 0.06);
+    --shadow-plate-hover:
+      0 1px 0 rgb(var(--parchment-50) / 0.06),
+      0 0 0 1px rgb(var(--brass) / 0.4);
 
     /* Decorative tokens used by globals.css overlays. Not for components. */
     --grain-opacity: 0.03;
-    --gradient-brass: rgba(184, 146, 74, 0.035);
-    --gradient-oxblood: rgba(122, 30, 34, 0.04);
+    --gradient-brass: rgba(240, 137, 90, 0.035);
+    --gradient-oxblood: rgba(224, 82, 96, 0.03);
   }
 
   [data-theme="light"] {
-    /* Surfaces flip to parchment cream → white. The naming `ink-900` for
-       the page is a misnomer in light mode but it's the lowest-cost
-       migration path. */
-    --ink-900: 247 243 234; /* warm cream — body */
-    --ink-800: 253 249 238; /* lighter cream — raised panels */
-    --ink-700: 255 255 255; /* white — cards */
-    --ink-600: 232 226 211; /* mid paper — borders */
-    --ink-500: 213 204 184; /* deeper paper — hover surfaces */
+    /* Modern-neutral surfaces: cool near-white page, white cards, cool
+       gray insets. (Replaced the parchment-cream light theme.) */
+    --ink-900: 246 247 249; /* #f6f7f9 — page */
+    --ink-800: 255 255 255; /* white — raised panels / cards */
+    --ink-700: 236 238 242; /* #eceef2 — insets */
+    --ink-600: 223 226 231; /* #dfe2e7 — borders */
+    --ink-500: 203 208 215; /* #cbd0d7 — hover surfaces */
 
-    /* Text flips: deep ink on cream. Contrast vs --ink-900 (cream):
-       primary 16:1, muted 11:1, faint 7:1, dim 5.4:1 — all pass AA. */
-    --parchment-50: 31 32 36;
-    --parchment-100: 52 55 61;
-    --parchment-200: 75 80 88;
-    --parchment-300: 110 100 80;
+    /* Text: cool near-black on near-white. Contrast vs --ink-900:
+       primary 15.9:1, muted 10.5:1, faint 6.8:1, dim 5.0:1 — all AA. */
+    --parchment-50: 23 25 29;
+    --parchment-100: 51 55 62;
+    --parchment-200: 74 81 91;
+    --parchment-300: 95 104 117;
 
-    /* brass-light flips to brass-dark hex so emphasis text passes AA on
-       cream (5.4:1). Components keep using `text-brass-light`; the value
-       it resolves to changes per theme. */
-    --brass-light: 140 109 51;
+    /* Ember darkened for white/near-white grounds: DEFAULT 5.0:1 on
+       white, light-tier 4.5:1 — the old brass was 2.6:1 on cream. */
+    --brass: 173 70 24; /* #ad4618 */
+    --brass-light: 181 81 31; /* #b5511f */
+    --brass-dark: 143 58 20; /* #8f3a14 */
 
-    /* Cream + noise grain reads as visual clutter. Soften both layers. */
-    --grain-opacity: 0.012;
-    --gradient-brass: rgba(140, 109, 51, 0.04);
-    --gradient-oxblood: rgba(122, 30, 34, 0.03);
+    /* Danger deepened for light ground; text tier == fill tier here
+       (both must clear 4.5:1 on white). */
+    --oxblood: 171 36 48; /* #ab2430 */
+    --oxblood-light: 171 36 48;
+    --oxblood-dark: 122 30 34;
+
+    /* White cards on a near-white page need real shadows for definition
+       (the parchment plate lines were invisible in light mode). */
+    --shadow-plate:
+      0 1px 2px rgb(15 18 25 / 0.06),
+      0 2px 8px rgb(15 18 25 / 0.05),
+      0 0 0 1px rgb(15 18 25 / 0.06);
+    --shadow-plate-hover:
+      0 1px 2px rgb(15 18 25 / 0.06),
+      0 2px 8px rgb(15 18 25 / 0.05),
+      0 0 0 1px rgb(var(--brass) / 0.4);
+
+    /* Clean neutral ground: grain nearly off, tints whisper-quiet. */
+    --grain-opacity: 0.008;
+    --gradient-brass: rgba(173, 70, 24, 0.025);
+    --gradient-oxblood: rgba(171, 36, 48, 0.015);
   }
 
   html,
@@ -87,7 +131,9 @@
   body::before {
     content: "";
     position: fixed;
-    inset: 0;
+    /* Oversized so the lamplight drift (translate up to ~4% + slight
+       scale-down) never exposes an uncovered edge. */
+    inset: -12%;
     pointer-events: none;
     z-index: 0;
     background-image:
@@ -103,6 +149,29 @@
       );
   }
 
+  /* "Ember lamplight" — the accent glow drifts almost imperceptibly,
+     like lamplight in an empty hall. One 48s loop, GPU-only transform,
+     and completely still for users who prefer reduced motion. */
+  @keyframes lampdrift {
+    0% {
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      transform: translate(3%, 2%) scale(1.05);
+    }
+    66% {
+      transform: translate(-2%, 3%) scale(0.97);
+    }
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    body::before {
+      animation: lampdrift 48s ease-in-out infinite;
+    }
+  }
+
   body::after {
     content: "";
     position: fixed;
@@ -115,7 +184,9 @@
   }
 
   ::selection {
-    background: rgb(184 146 74 / 0.9); /* brass — same in both themes */
+    /* Accent-tinted selection; flips with the theme (deep ember on
+       light ground, bright ember on dark) with page-colored text. */
+    background: rgb(var(--brass) / 0.9);
     color: rgb(var(--ink-900));
   }
 
@@ -194,10 +265,12 @@
   }
 }
 .shimmer {
+  /* Text-colored sweep so it reads in both themes (was hardcoded
+     parchment, which vanished on light backgrounds). */
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(245, 239, 226, 0.08),
+    rgb(var(--parchment-50) / 0.08),
     transparent
   );
   background-size: 200% 100%;

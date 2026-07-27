@@ -84,11 +84,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   // Per-theme browser chrome color. Dark = ink-900 (#1f2024), light =
-  // cream (#f7f3ea). The runtime toggle script keeps these in sync with
-  // the active theme.
+  // modern-neutral page (#f6f7f9). The runtime toggle script keeps these
+  // in sync with the active theme.
   themeColor: [
     { media: "(prefers-color-scheme: dark)", color: "#1f2024" },
-    { media: "(prefers-color-scheme: light)", color: "#f7f3ea" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f7f9" },
   ],
   width: "device-width",
   initialScale: 1,

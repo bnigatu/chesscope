@@ -203,7 +203,7 @@ export function BookPanel({
                         )}
                         {l > 0 && (
                           <div
-                            className="bg-oxblood"
+                            className="bg-[#1f2024]"
                             style={{ width: `${l}%` }}
                           />
                         )}

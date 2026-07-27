@@ -81,9 +81,10 @@ function Body({
     <div className="space-y-3">
       {/* W/D/L bar */}
       <div className="space-y-1.5">
-        {/* Framed meter, matching the played-moves bars (dark frame on
-            light mode, light frame on dark). */}
-        <div className="flex h-5 rounded-md overflow-hidden border border-parchment-50/70">
+        {/* Ember-framed meter, matching the played-moves bars. The loss
+            segment is absolute chess black, so the accent frame no longer
+            fights a red fill. */}
+        <div className="flex h-5 rounded-md overflow-hidden border border-brass/50">
           {/* Absolute result colors: win stays light, draw neutral
               gray, loss red-with-light-text in BOTH themes. Theme
               tokens rendered the win segment near-black in light
@@ -94,7 +95,7 @@ function Body({
             pct={drawPct}
             className="bg-[#8e9299]/45 text-[#1f2024]"
           />
-          <Segment pct={lossPct} className="bg-oxblood text-[#f5efe2]" />
+          <Segment pct={lossPct} className="bg-[#1f2024] text-[#f5efe2]" />
         </div>
         <div className="flex justify-between text-[11px] font-mono text-parchment-300">
           <span>{wins}W</span>

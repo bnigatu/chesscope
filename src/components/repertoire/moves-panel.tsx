@@ -169,10 +169,9 @@ function MultiGameRow({
         {move.count.toLocaleString()}
       </td>
       <td className="px-3 py-2 w-1/2">
-        {/* Framed meter. parchment-50 flips with the theme (dark frame
-            on light mode, light frame on dark) — the accent was tried
-            here but sits too close to the loss-red to pop. */}
-        <div className="flex h-4 rounded-md overflow-hidden border border-parchment-50/70">
+        {/* Ember-framed meter. Result colors are absolute chess colors:
+            win = white, draw = neutral gray, black wins = black. */}
+        <div className="flex h-4 rounded-md overflow-hidden border border-brass/50">
           {/* Absolute result colors — see stats-card: white-wins stays
               light and draws neutral in both themes; loss text pinned
               light on the themed red. */}
@@ -191,7 +190,7 @@ function MultiGameRow({
           <ResultSegment
             pct={l}
             count={move.blackWins}
-            className="bg-oxblood text-[#f5efe2]"
+            className="bg-[#1f2024] text-[#f5efe2]"
             label="Black wins"
           />
         </div>

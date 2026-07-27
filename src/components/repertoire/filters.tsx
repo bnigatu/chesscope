@@ -6,7 +6,7 @@ export function Filters() {
       <h2 className="font-mono text-[11px] uppercase tracking-[.25em] text-brass">
         Filters
       </h2>
-      <div className="space-y-3 px-3 py-3 bg-ink-800/60 border border-parchment-50/8 rounded-sm">
+      <div className="space-y-3 px-3 py-3 bg-ink-800/60 border border-parchment-50/15 rounded-sm">
         <Row label="Color">
           <div className="flex items-center gap-3 text-sm">
             <Radio name="color" value="white" defaultChecked label="White" />

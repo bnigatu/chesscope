@@ -85,7 +85,7 @@ export function MovesPanel({
       </h2>
       <div
         className={cx(
-          "border border-parchment-50/8 rounded-sm overflow-hidden",
+          "border border-parchment-50/15 rounded-sm overflow-hidden",
           "bg-ink-800/60"
         )}
       >
@@ -103,7 +103,7 @@ export function MovesPanel({
               <col className="w-[4rem]" />
               <col />
             </colgroup>
-            <thead className="text-left text-[11px] uppercase tracking-[.18em] text-parchment-300/50 border-b border-parchment-50/8">
+            <thead className="text-left text-[11px] uppercase tracking-[.18em] text-parchment-300/50 border-b border-parchment-50/15">
               <tr>
                 <th className="px-3 py-2 font-normal">Move</th>
                 <th className="px-3 py-2 font-normal text-right">Games</th>

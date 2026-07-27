@@ -48,7 +48,7 @@ export function ShortcutCheatsheet({
         >
           ◆ Keyboard shortcuts
         </h2>
-        <ul className="divide-y divide-parchment-50/8">
+        <ul className="divide-y divide-parchment-50/15">
           {shortcuts.map((s, i) => (
             <li
               key={`${s.hint}-${i}`}

@@ -527,12 +527,12 @@ export function EnginePanel({
   return (
     <div
       className={cx(
-        "border border-parchment-50/8 rounded-sm overflow-hidden",
+        "border border-parchment-50/15 rounded-sm overflow-hidden",
         "bg-ink-800/80"
       )}
     >
       {/* Header bar */}
-      <div className="flex items-center gap-2 px-2 py-1.5 border-b border-parchment-50/8">
+      <div className="flex items-center gap-2 px-2 py-1.5 border-b border-parchment-50/15">
         <span
           className="font-mono text-[10px] uppercase tracking-[.18em] text-brass shrink-0"
           title={ENGINES[settings.engineId].label}

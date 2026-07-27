@@ -34,7 +34,7 @@ export function StatsCard({
       </h2>
       <div
         className={cx(
-          "border border-parchment-50/8 rounded-sm",
+          "border border-parchment-50/15 rounded-sm",
           "bg-ink-800/60 px-4 py-3"
         )}
       >

@@ -154,19 +154,19 @@ export default async function AboutPage() {
         <Section heading="Coverage">
           {stats ? (
             <ul className="grid grid-cols-2 gap-x-8 gap-y-3 not-prose data-num text-parchment-50">
-              <li className="flex justify-between border-b border-parchment-50/8 pb-2">
+              <li className="flex justify-between border-b border-parchment-50/15 pb-2">
                 <span className="text-parchment-300/60">Games</span>
                 <span>{stats.games?.toLocaleString() ?? "-"}</span>
               </li>
-              <li className="flex justify-between border-b border-parchment-50/8 pb-2">
+              <li className="flex justify-between border-b border-parchment-50/15 pb-2">
                 <span className="text-parchment-300/60">Players</span>
                 <span>{stats.players?.toLocaleString() ?? "-"}</span>
               </li>
-              <li className="flex justify-between border-b border-parchment-50/8 pb-2">
+              <li className="flex justify-between border-b border-parchment-50/15 pb-2">
                 <span className="text-parchment-300/60">Tournaments</span>
                 <span>{stats.events?.toLocaleString() ?? "-"}</span>
               </li>
-              <li className="flex justify-between border-b border-parchment-50/8 pb-2">
+              <li className="flex justify-between border-b border-parchment-50/15 pb-2">
                 <span className="text-parchment-300/60">Latest</span>
                 <span>{stats.latest ?? "-"}</span>
               </li>

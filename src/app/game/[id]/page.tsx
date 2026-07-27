@@ -95,7 +95,7 @@ export default async function GamePage({ params }: { params: Params }) {
       </div>
 
       <article className="container-narrow mt-8 animate-rise">
-        <header className="space-y-3 pb-8 border-b border-parchment-50/8">
+        <header className="space-y-3 pb-8 border-b border-parchment-50/15">
           {game.event && (
             <p className="font-mono text-[11px] uppercase tracking-[.3em] text-brass">
               {game.event}

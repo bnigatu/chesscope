@@ -66,7 +66,7 @@ export function MoveListPanel({
 
       <div
         className={cx(
-          "border border-parchment-50/8 rounded-sm",
+          "border border-parchment-50/15 rounded-sm",
           "bg-ink-800/60",
           "max-h-[360px] overflow-y-auto"
         )}

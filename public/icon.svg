@@ -1,11 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <!-- Chesscope mark: pawn rising out of a scope lens (halo knockout
        where they cross) + reticle stubs on the sides and bottom.
-       Ink plate, ember mark - matches the site theme tokens. -->
-  <rect width="32" height="32" rx="7" fill="#1f2024"/>
-  <g transform="translate(4 4)">
+       No plate: the ember mark fills the canvas edge-to-edge on a
+       transparent background (browser-tab favicon). The PWA/apple
+       icons in /public keep an ink plate; they are rasterized from
+       plate variants of this same geometry. -->
+  <g transform="translate(16 16) scale(1.8) translate(-12 -13.1)">
     <mask id="halo">
-      <rect x="-4" y="-4" width="32" height="32" fill="white"/>
+      <rect x="-6" y="-6" width="36" height="36" fill="white"/>
       <g transform="translate(12 11.2) scale(0.86) translate(-12 -12.6)" fill="black" stroke="black" stroke-width="2.4">
         <circle cx="12" cy="7.6" r="3.1"/>
         <rect x="8.9" y="10.6" width="6.2" height="1.9" rx="0.95"/>

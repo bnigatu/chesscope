@@ -169,7 +169,10 @@ function MultiGameRow({
         {move.count.toLocaleString()}
       </td>
       <td className="px-3 py-2 w-1/2">
-        <div className="flex h-4 rounded-sm overflow-hidden border border-parchment-50/10">
+        {/* Framed meter. parchment-50 flips with the theme (dark frame
+            on light mode, light frame on dark) — the accent was tried
+            here but sits too close to the loss-red to pop. */}
+        <div className="flex h-4 rounded-md overflow-hidden border border-parchment-50/70">
           {/* Absolute result colors — see stats-card: white-wins stays
               light and draws neutral in both themes; loss text pinned
               light on the themed red. */}

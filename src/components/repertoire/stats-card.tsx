@@ -81,7 +81,9 @@ function Body({
     <div className="space-y-3">
       {/* W/D/L bar */}
       <div className="space-y-1.5">
-        <div className="flex h-5 rounded-sm overflow-hidden border border-parchment-50/10">
+        {/* Framed meter, matching the played-moves bars (dark frame on
+            light mode, light frame on dark). */}
+        <div className="flex h-5 rounded-md overflow-hidden border border-parchment-50/70">
           {/* Absolute result colors: win stays light, draw neutral
               gray, loss red-with-light-text in BOTH themes. Theme
               tokens rendered the win segment near-black in light
